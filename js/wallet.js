@@ -118,6 +118,9 @@ function initWalletConnection() {
     
     // Set up dropdown toggle functionality
     setupDropdownToggle();
+    
+    // Initialize network switcher
+    initNetworkSwitcher();
 }
 
 // Set up event listeners for wallet buttons
@@ -236,6 +239,7 @@ async function connectWallet() {
             // Get network/chain ID
             const chainId = await provider.request({ method: 'eth_chainId' });
             currentChainId = parseInt(chainId, 16); // Convert hex to decimal
+            window.currentChainId = currentChainId; // Update global variable
             
             console.log("Connected to chain ID:", currentChainId);
             
@@ -320,8 +324,16 @@ function setupProviderEvents() {
         provider.on('chainChanged', (chainIdHex) => {
             console.log("Chain changed:", chainIdHex);
             currentChainId = parseInt(chainIdHex, 16);
+            window.currentChainId = currentChainId; // Update global variable
             updateNetworkDisplay(currentChainId);
-            // No need to reload the page
+            
+            // Log network change for debugging
+            const networkInfo = NETWORKS[currentChainId];
+            if (networkInfo) {
+                console.log(`Switched to network: ${networkInfo.name} (${currentChainId})`);
+            } else {
+                console.log(`Switched to unknown network: ${currentChainId}`);
+            }
         });
         
         // Disconnect event (some wallets support this)
@@ -392,6 +404,7 @@ async function checkConnection() {
                         // Get network/chain ID
                         const chainId = await provider.request({ method: 'eth_chainId' });
                         currentChainId = parseInt(chainId, 16);
+                        window.currentChainId = currentChainId; // Update global variable
                         
                         // Setup provider events
                         setupProviderEvents();
@@ -426,6 +439,7 @@ async function checkConnection() {
                                 // Get network/chain ID
                                 const chainId = await provider.request({ method: 'eth_chainId' });
                                 currentChainId = parseInt(chainId, 16);
+                                window.currentChainId = currentChainId; // Update global variable
                                 
                                 // Setup provider events
                                 setupProviderEvents();
@@ -688,6 +702,97 @@ function removeToast(toast) {
             toast.parentNode.removeChild(toast);
         }
     }, 500);
+}
+
+// Network Switching Functionality
+function initNetworkSwitcher() {
+    const switchNetworkBtn = document.getElementById('switchNetworkBtn');
+    if (switchNetworkBtn) {
+        switchNetworkBtn.addEventListener('click', async function() {
+            const chainId = this.getAttribute('data-chain-id');
+            const networkName = this.getAttribute('data-network-name');
+            
+            if (chainId) {
+                try {
+                    await switchNetwork(parseInt(chainId));
+                } catch (error) {
+                    console.error("Error switching network:", error);
+                    showToast(`Failed to switch to ${networkName}: ${error.message}`, 'error');
+                }
+            }
+        });
+    }
+}
+
+// Export switchNetwork and checkCorrectNetwork to window object for other modules to use
+window.switchNetwork = switchNetwork;
+window.checkCorrectNetwork = checkCorrectNetwork;
+window.currentChainId = currentChainId;
+
+// Function to switch blockchain network
+async function switchNetwork(chainId) {
+    if (!provider || !window.ethereum) {
+        throw new Error("No wallet provider found. Please connect your wallet first.");
+    }
+    
+    const targetNetwork = NETWORKS[chainId];
+    if (!targetNetwork) {
+        throw new Error(`Network configuration not found for chain ID: ${chainId}`);
+    }
+    
+    try {
+        // First attempt to switch to the network
+        try {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: '0x' + chainId.toString(16) }]
+            });
+            
+            showToast(`Successfully switched to ${targetNetwork.name}`, 'success');
+            return true;
+        } catch (switchError) {
+            // This error code indicates that the chain has not been added to MetaMask
+            if (switchError.code === 4902 || switchError.code === -32603) {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: '0x' + chainId.toString(16),
+                            chainName: targetNetwork.name,
+                            nativeCurrency: targetNetwork.nativeCurrency,
+                            rpcUrls: [targetNetwork.rpcUrl],
+                            blockExplorerUrls: [targetNetwork.blockExplorerUrl]
+                        }]
+                    });
+                    
+                    // Check if the network was actually switched
+                    const newChainId = await window.ethereum.request({ method: 'eth_chainId' });
+                    const newChainIdDecimal = parseInt(newChainId, 16);
+                    
+                    if (newChainIdDecimal === chainId) {
+                        showToast(`Successfully added and switched to ${targetNetwork.name}`, 'success');
+                        return true;
+                    } else {
+                        // Network was added but not switched
+                        throw new Error('Network was added but not switched. Please try switching manually.');
+                    }
+                } catch (addError) {
+                    throw new Error(`Error adding network: ${addError.message}`);
+                }
+            } else {
+                throw switchError;
+            }
+        }
+    } catch (error) {
+        console.error("Network switching error:", error);
+        throw error;
+    }
+}
+
+// Function to check if current network matches required network
+function checkCorrectNetwork(requiredChainId) {
+    if (!currentChainId) return false;
+    return currentChainId === parseInt(requiredChainId);
 }
 
 // Add wallet connection modal to the page if it doesn't exist

@@ -84,9 +84,16 @@ async function initializeContract() {
         const network = await provider.getNetwork();
         console.log('Current network:', network);
         
-        // Check if we're on the correct network
-        if (contractData.networkId && network.chainId !== contractData.networkId) {
-            console.warn(`Contract is deployed on ${contractData.networkName} (chainId: ${contractData.networkId}), but you're connected to chainId: ${network.chainId}`);
+        // Check if contract is available on the current network
+        const currentNetworkId = network.chainId;
+        
+        // First check if we have a contract address for this network
+        if (contractData.contractPerNetwork && contractData.contractPerNetwork[currentNetworkId]) {
+            console.log(`Contract found on current network: ${contractData.contractPerNetwork[currentNetworkId].networkName} (chainId: ${currentNetworkId})`);
+            // We can use this network's contract
+            contractData.address = contractData.contractPerNetwork[currentNetworkId].address;
+        } else if (contractData.networkId && network.chainId !== contractData.networkId) {
+            console.warn(`Contract is not available on current network chainId: ${network.chainId}, need to switch to ${contractData.networkName} (chainId: ${contractData.networkId})`);
             
             // Prompt user to switch networks
             try {
@@ -291,6 +298,30 @@ async function contribute(campaignId, amount) {
     }
     
     try {
+        // Get campaign chain ID from hidden input
+        const chainIdElement = document.getElementById('chainId');
+        if (chainIdElement && chainIdElement.value) {
+            const requiredChainId = parseInt(chainIdElement.value);
+            
+            // Check if we're on the correct network
+            if (window.currentChainId !== requiredChainId) {
+                try {
+                    const networkNameElement = document.querySelector('[data-network-name]');
+                    const networkName = networkNameElement ? networkNameElement.getAttribute('data-network-name') : 'required';
+                    
+                    showToast(`Switching to ${networkName} network...`, 'info');
+                    await window.switchNetwork(requiredChainId);
+                    
+                    // Re-initialize contract after network switch
+                    await initializeContract();
+                } catch (switchError) {
+                    console.error('Network switching error:', switchError);
+                    showToast('Please switch networks manually and try again', 'error');
+                    throw new Error(`Please switch to the required network to contribute to this campaign`);
+                }
+            }
+        }
+        
         // Convert amount to wei
         const amountInWei = ethers.utils.parseEther(amount.toString());
         
@@ -321,6 +352,30 @@ async function contributeWithStaking(campaignId, amount, stakingPeriodInDays) {
     }
     
     try {
+        // Get campaign chain ID from hidden input
+        const chainIdElement = document.getElementById('chainId');
+        if (chainIdElement && chainIdElement.value) {
+            const requiredChainId = parseInt(chainIdElement.value);
+            
+            // Check if we're on the correct network
+            if (window.currentChainId !== requiredChainId) {
+                try {
+                    const networkNameElement = document.querySelector('[data-network-name]');
+                    const networkName = networkNameElement ? networkNameElement.getAttribute('data-network-name') : 'required';
+                    
+                    showToast(`Switching to ${networkName} network...`, 'info');
+                    await window.switchNetwork(requiredChainId);
+                    
+                    // Re-initialize contract after network switch
+                    await initializeContract();
+                } catch (switchError) {
+                    console.error('Network switching error:', switchError);
+                    showToast('Please switch networks manually and try again', 'error');
+                    throw new Error(`Please switch to the required network to stake in this campaign`);
+                }
+            }
+        }
+        
         // Convert amount to wei
         const amountInWei = ethers.utils.parseEther(amount.toString());
         

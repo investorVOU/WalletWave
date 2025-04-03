@@ -321,11 +321,26 @@ if ($walletConnected && $campaignId > 0) {
                         <i class="fas fa-hand-holding-usd text-blue-400 mr-2"></i> Stake on this Campaign
                     </h3>
                     
-                    <?php if (strpos(strtolower($campaign['network_name'] ?? ''), 'testnet') !== false): ?>
+                    <!-- Network Information and Switcher -->
                     <div class="bg-blue-500/10 border border-blue-500/20 text-blue-400 px-4 py-2 rounded-lg mb-4 text-sm">
-                        <p><i class="fas fa-info-circle mr-2"></i> This campaign is on <b><?php echo htmlspecialchars($campaign['network_name']); ?></b>. Use test <?php echo htmlspecialchars($campaign['token_symbol']); ?> for transactions.</p>
+                        <div class="flex justify-between items-center">
+                            <p>
+                                <i class="fas fa-network-wired mr-2"></i> 
+                                This campaign is on <b><?php echo htmlspecialchars($campaign['network_name'] ?? 'Unknown Network'); ?></b>
+                                <?php if (strpos(strtolower($campaign['network_name'] ?? ''), 'testnet') !== false): ?>
+                                <span class="ml-1">(Use test <?php echo htmlspecialchars($campaign['token_symbol']); ?>)</span>
+                                <?php endif; ?>
+                            </p>
+                            <?php if (!empty($campaign['chain_id'])): ?>
+                            <button type="button" id="switchNetworkBtn" 
+                                data-chain-id="<?php echo htmlspecialchars($campaign['chain_id']); ?>" 
+                                data-network-name="<?php echo htmlspecialchars($campaign['network_name']); ?>"
+                                class="ml-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-1 px-2 rounded">
+                                Switch Network
+                            </button>
+                            <?php endif; ?>
+                        </div>
                     </div>
-                    <?php endif; ?>
                     
                     <?php if ($formError): ?>
                     <div class="bg-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-4">

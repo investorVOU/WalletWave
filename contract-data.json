@@ -2,6 +2,24 @@
   "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   "networkId": 11155111,
   "networkName": "Sepolia Testnet",
+  "contractPerNetwork": {
+    "1": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "networkName": "Ethereum Mainnet"
+    },
+    "56": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "networkName": "Binance Smart Chain"
+    },
+    "137": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "networkName": "Polygon Mainnet"
+    },
+    "11155111": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "networkName": "Sepolia Testnet"
+    }
+  },
   "abi": [
     {
       "inputs": [],
