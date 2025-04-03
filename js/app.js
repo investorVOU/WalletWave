@@ -4,21 +4,13 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    // DOM References
-    const walletDropdownToggle = document.getElementById('walletDropdownToggle');
-    const walletDropdownMenu = document.getElementById('walletDropdownMenu');
+    // Mobile menu functionality
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const mobileMenu = document.getElementById('mobileMenu');
     
-    // Wallet dropdown toggle (if exists)
-    if (walletDropdownToggle) {
-        walletDropdownToggle.addEventListener('click', function() {
-            walletDropdownMenu.classList.toggle('hidden');
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!walletDropdownToggle.contains(event.target) && !walletDropdownMenu.contains(event.target)) {
-                walletDropdownMenu.classList.add('hidden');
-            }
+    if (mobileMenuToggle && mobileMenu) {
+        mobileMenuToggle.addEventListener('click', function() {
+            mobileMenu.classList.toggle('hidden');
         });
     }
     

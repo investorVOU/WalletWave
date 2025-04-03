@@ -1,18 +1,15 @@
 /**
- * Web3Modal Wallet Connection Module
- * Handles wallet connection functionality using Web3Modal
- * Enhanced to support both desktop and mobile wallets and multiple networks
- * 
- * This module has been simplified to increase compatibility
- * across different environments and wallets
+ * Simple Direct Web3 Wallet Connection Module
+ * Handles wallet connection functionality using direct provider connection
+ * Supports both desktop and mobile wallets and multiple networks
  */
 
 // Global variables
 let web3;
 let provider;
-let web3Modal;
 let selectedAccount = null;
 let currentChainId = null;
+let currentNetworkData = null;
 
 // Supported networks configuration
 const NETWORKS = {
@@ -99,120 +96,49 @@ const NETWORKS = {
 // Default network (Ethereum Mainnet)
 const DEFAULT_CHAIN_ID = 1;
 
-// Initialize Web3Modal with a more simplified approach
-function initWeb3Modal() {
-    try {
-        console.log("Initializing Web3Modal...");
-        
-        // Check if Web3Modal is available
-        if (typeof Web3Modal !== 'function' && typeof window.Web3Modal !== 'function') {
-            console.warn("Web3Modal not available yet, will retry in 800ms");
-            setTimeout(initWeb3Modal, 800);
-            return;
-        }
-        
-        // Get the proper Web3Modal constructor
-        const Web3ModalConstructor = typeof Web3Modal === 'function' ? Web3Modal : window.Web3Modal;
-        
-        // Set up WalletConnect provider if available
-        const providerOptions = {};
-        
-        // Check for WalletConnect provider availability
-        if (typeof WalletConnectProvider === 'function' || typeof window.WalletConnectProvider === 'function') {
-            const WCProvider = typeof WalletConnectProvider === 'function' ? 
-                               WalletConnectProvider : window.WalletConnectProvider;
-            
-            console.log("WalletConnect provider found, adding to options");
-            
-            // Generate RPC configuration from supported networks
-            const rpcConfig = {};
-            Object.keys(NETWORKS).forEach(chainId => {
-                rpcConfig[chainId] = NETWORKS[chainId].rpcUrl;
-            });
-            
-            // Add WalletConnect with all supported networks
-            providerOptions.walletconnect = {
-                package: WCProvider,
-                options: {
-                    infuraId: "27e484dcd9e3efcfd25a83a78777cdf1",
-                    rpc: rpcConfig,
-                    qrcodeModalOptions: {
-                        mobileLinks: [
-                            "metamask",
-                            "trust",
-                            "coinbase",
-                            "rainbow",
-                            "zerion",
-                            "okxwallet"
-                        ]
-                    }
-                }
-            };
-        } else {
-            console.warn("WalletConnect provider not available");
-        }
-        
-        // Create Web3Modal instance with simplified configuration
-        web3Modal = new Web3ModalConstructor({
-            cacheProvider: true,
-            providerOptions: providerOptions,
-            disableInjectedProvider: false,
-            theme: {
-                background: "rgb(15, 23, 42)",
-                main: "rgb(255, 255, 255)",
-                secondary: "rgb(148, 163, 184)",
-                border: "rgba(59, 130, 246, 0.3)",
-                hover: "rgb(30, 41, 59)"
-            }
-        });
-        
-        console.log("Web3Modal initialized successfully");
-        
-        // Setup listeners and check for existing connection
-        setupConnectButtonListeners();
-        checkConnection();
-        
-    } catch (error) {
-        console.error("Error initializing Web3Modal:", error);
-        // Set up fallback listeners if initialization fails
-        addFallbackListeners();
-    }
+// Initialize wallet functionality
+function initWalletConnection() {
+    console.log("Initializing wallet connection...");
+    
+    // Set up event listeners
+    setupEventListeners();
+    
+    // Check for existing connection
+    checkConnection();
+    
+    // Set up dropdown toggle functionality
+    setupDropdownToggle();
 }
 
-// Setup connect button event listeners
-function setupConnectButtonListeners() {
-    // Connect wallet button click handler
+// Set up event listeners for wallet buttons
+function setupEventListeners() {
+    // Connect wallet button (can be multiple on the page)
     document.querySelectorAll('.connect-wallet-btn').forEach(btn => {
         btn.addEventListener('click', async function() {
             if (selectedAccount) {
-                // If already connected, show the dropdown menu
+                // If already connected, toggle wallet dropdown
+                const walletDisplay = document.getElementById('walletDisplay');
                 const dropdown = document.getElementById('walletDropdown');
-                if (dropdown) {
+                
+                if (dropdown && walletDisplay) {
                     dropdown.classList.toggle('hidden');
                 }
             } else {
-                // If not connected, try to connect
+                // Try to connect
                 try {
                     await connectWallet();
                 } catch (error) {
                     console.error("Error connecting wallet:", error);
-                    showToast('Failed to connect wallet. Please try again.', 'error');
+                    showToast('Failed to connect wallet: ' + (error.message || "Unknown error"), 'error');
                 }
             }
         });
     });
     
-    // Disconnect button click handler
+    // Disconnect button
     const disconnectBtn = document.getElementById('disconnectWalletBtn');
     if (disconnectBtn) {
-        disconnectBtn.addEventListener('click', async function() {
-            try {
-                await disconnectWallet();
-            } catch (error) {
-                console.error("Error disconnecting wallet:", error);
-                showToast('Failed to disconnect wallet. Please try again.', 'error');
-            }
-        });
+        disconnectBtn.addEventListener('click', disconnectWallet);
     }
     
     // Copy address button
@@ -221,7 +147,7 @@ function setupConnectButtonListeners() {
         copyBtn.addEventListener('click', copyAddressToClipboard);
     }
     
-    // Setup modal close buttons
+    // Modal close buttons
     const closeModalBtn = document.getElementById('closeModalBtn');
     const continueBtn = document.getElementById('continueBtn');
     const retryBtn = document.getElementById('retryBtn');
@@ -232,85 +158,101 @@ function setupConnectButtonListeners() {
     if (continueBtn) continueBtn.addEventListener('click', hideConnectionModal);
     if (retryBtn) retryBtn.addEventListener('click', connectWallet);
     if (closeErrorBtn) closeErrorBtn.addEventListener('click', hideConnectionModal);
-    if (modalOverlay) modalOverlay.addEventListener('click', hideConnectionModal);
-}
-
-// Add fallback listeners when Web3Modal fails to initialize
-function addFallbackListeners() {
-    document.querySelectorAll('.connect-wallet-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            showToast('Wallet connection is not available. Please make sure you have MetaMask or a mobile wallet like Trust Wallet, Coinbase Wallet, or MetaMask Mobile.', 'error');
-        });
+    if (modalOverlay) modalOverlay.addEventListener('click', function(e) {
+        // Only close if clicking on the actual overlay, not its children
+        if (e.target === modalOverlay) {
+            hideConnectionModal();
+        }
     });
+    
+    // Mobile menu toggle
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const mobileMenu = document.getElementById('mobileMenu');
+    
+    if (mobileMenuToggle && mobileMenu) {
+        mobileMenuToggle.addEventListener('click', function() {
+            mobileMenu.classList.toggle('hidden');
+        });
+    }
 }
 
-// Connect to wallet
+// Set up dropdown toggle functionality
+function setupDropdownToggle() {
+    const walletDropdownToggle = document.getElementById('walletDropdownToggle');
+    const walletDropdown = document.getElementById('walletDropdown');
+    
+    if (walletDropdownToggle && walletDropdown) {
+        walletDropdownToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            walletDropdown.classList.toggle('hidden');
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!walletDropdownToggle.contains(e.target) && !walletDropdown.contains(e.target)) {
+                walletDropdown.classList.add('hidden');
+            }
+        });
+    }
+}
+
+// Connect to wallet using the injected provider (MetaMask, etc.)
 async function connectWallet() {
     try {
         showConnectionModal('loading');
         
-        // Check if web3Modal is initialized
-        if (!web3Modal) {
-            throw new Error("Web3Modal not initialized. Please make sure you have a compatible wallet extension installed.");
-        }
-        
-        // Connect to provider
-        try {
-            provider = await web3Modal.connect();
-        } catch (connectError) {
-            console.error("Connection error:", connectError);
-            let errorMessage = "Could not connect to wallet. ";
-            
-            if (connectError.message) {
-                errorMessage += connectError.message;
-            } else {
-                errorMessage += "Please make sure you have a compatible wallet like MetaMask, Trust Wallet, Coinbase Wallet, or OKX Wallet installed and activated.";
-            }
-            
-            showConnectionModal('error', errorMessage);
+        // Check if ethereum provider exists (MetaMask or other injected wallet)
+        if (!window.ethereum) {
+            const errorMsg = "No Ethereum provider found. Please install MetaMask or use a browser with a compatible wallet extension.";
+            console.error(errorMsg);
+            showConnectionModal('error', errorMsg);
             return false;
         }
         
-        // Initialize Web3 with provider
-        try {
-            web3 = new Web3(provider);
-        } catch (web3Error) {
-            console.error("Web3 initialization error:", web3Error);
-            showConnectionModal('error', "Failed to initialize Web3. Please refresh and try again.");
-            return false;
-        }
+        // Store provider reference
+        provider = window.ethereum;
         
-        // Get accounts
+        // Request accounts
         try {
-            const accounts = await web3.eth.getAccounts();
+            const accounts = await provider.request({ method: 'eth_requestAccounts' });
+            
             if (!accounts || accounts.length === 0) {
-                throw new Error("No accounts found. Please make sure your wallet is unlocked and permissions are granted.");
+                throw new Error("No accounts found or user rejected the connection request.");
             }
+            
             selectedAccount = accounts[0];
-        } catch (accountsError) {
-            console.error("Error getting accounts:", accountsError);
-            showConnectionModal('error', accountsError.message || "Could not get your wallet accounts. Please check your wallet permissions.");
+            console.log("Connected account:", selectedAccount);
+            
+            // Get network/chain ID
+            const chainId = await provider.request({ method: 'eth_chainId' });
+            currentChainId = parseInt(chainId, 16); // Convert hex to decimal
+            
+            console.log("Connected to chain ID:", currentChainId);
+            
+            // Update network display
+            updateNetworkDisplay(currentChainId);
+            
+            // Initialize Web3
+            web3 = new Web3(provider);
+            
+            // Setup provider event listeners
+            setupProviderEvents();
+            
+            // Save wallet address to backend
+            await saveWalletAddress(selectedAccount);
+            
+            // Update UI
+            updateWalletUI(selectedAccount);
+            showConnectionModal('success');
+            
+            return true;
+        } catch (error) {
+            console.error("Error connecting wallet:", error);
+            showConnectionModal('error', error.message || "Failed to connect wallet. Please try again.");
             return false;
         }
-        
-        // Setup provider event listeners
-        setupProviderEvents();
-        
-        // Save account to database
-        try {
-            await saveWalletAddress(selectedAccount);
-        } catch (saveError) {
-            console.error("Error saving wallet address:", saveError);
-            // Continue anyway as this is not critical
-        }
-        
-        // Update UI
-        updateWalletUI(selectedAccount);
-        showConnectionModal('success');
-        
-        return true;
     } catch (error) {
-        console.error("Could not connect to wallet:", error);
+        console.error("Wallet connection error:", error);
         showConnectionModal('error', error.message || "An unexpected error occurred while connecting your wallet.");
         return false;
     }
@@ -319,23 +261,24 @@ async function connectWallet() {
 // Disconnect wallet
 async function disconnectWallet() {
     try {
-        if (provider && provider.close) {
-            await provider.close();
-        }
-        
-        // Clear cached provider
-        await web3Modal.clearCachedProvider();
-        
         // Reset variables
         provider = null;
         web3 = null;
         selectedAccount = null;
+        currentChainId = null;
+        currentNetworkData = null;
         
         // Update database
         await removeWalletAddress();
         
         // Update UI
         updateWalletUI(null);
+        
+        // Close dropdown if open
+        const dropdown = document.getElementById('walletDropdown');
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+        }
         
         showToast('Wallet disconnected successfully', 'success');
         return true;
@@ -348,9 +291,11 @@ async function disconnectWallet() {
 
 // Setup provider events
 function setupProviderEvents() {
-    if (provider && provider.on) {
-        // Subscribe to accounts change
-        provider.on("accountsChanged", (accounts) => {
+    if (provider) {
+        // Account change event
+        provider.on('accountsChanged', (accounts) => {
+            console.log("Accounts changed:", accounts);
+            
             if (accounts.length === 0) {
                 // User disconnected their wallet
                 disconnectWallet();
@@ -360,52 +305,105 @@ function setupProviderEvents() {
                 updateWalletUI(selectedAccount);
             }
         });
-
-        // Subscribe to chainId change
-        provider.on("chainChanged", (chainId) => {
-            console.log("Chain changed:", chainId);
-            // Reload the page to avoid any errors
-            window.location.reload();
+        
+        // Chain/network change event
+        provider.on('chainChanged', (chainIdHex) => {
+            console.log("Chain changed:", chainIdHex);
+            currentChainId = parseInt(chainIdHex, 16);
+            updateNetworkDisplay(currentChainId);
+            // No need to reload the page
         });
-
-        // Subscribe to provider disconnection
-        provider.on("disconnect", (error) => {
+        
+        // Disconnect event (some wallets support this)
+        provider.on('disconnect', (error) => {
             console.log("Provider disconnected:", error);
             disconnectWallet();
         });
     }
 }
 
+// Update network display based on chain ID
+function updateNetworkDisplay(chainId) {
+    const networkDisplay = document.getElementById('networkDisplay');
+    if (!networkDisplay) return;
+    
+    currentNetworkData = NETWORKS[chainId] || null;
+    
+    if (currentNetworkData) {
+        networkDisplay.innerHTML = `
+            <div class="flex items-center gap-1">
+                <span class="inline-block w-2 h-2 rounded-full" style="background-color: ${currentNetworkData.color}"></span>
+                <span class="text-xs text-gray-300">${currentNetworkData.name}</span>
+            </div>
+        `;
+    } else {
+        networkDisplay.innerHTML = `
+            <div class="flex items-center gap-1">
+                <span class="inline-block w-2 h-2 rounded-full bg-orange-500"></span>
+                <span class="text-xs text-gray-300">Unknown Network (${chainId})</span>
+            </div>
+        `;
+    }
+}
+
 // Check if user is already connected
 async function checkConnection() {
-    // First try to reconnect to cached provider if available
-    if (web3Modal && web3Modal.cachedProvider) {
-        try {
-            console.log("Found cached provider, attempting to reconnect...");
-            await connectWallet();
-        } catch (error) {
-            console.error("Error reconnecting to cached provider:", error);
-        }
-    }
-    
-    // Also check the backend session (for cases where the browser was closed)
+    // Check with the backend if there's an active session
     try {
         const response = await fetch('api/check_connection.php');
         const data = await response.json();
         
-        if (data.success) {
-            if (data.connected && data.address && !selectedAccount) {
-                console.log("Session has a connected wallet, updating UI...");
-                showToast(`Welcome back! Your wallet ${truncateAddress(data.address)} is connected.`, 'info');
-                updateWalletUI(data.address);
-                selectedAccount = data.address;
+        if (data.success && data.connected && data.address) {
+            console.log("Found active session with wallet:", data.address);
+            
+            // Check if browser wallet is available and connected
+            if (window.ethereum) {
+                try {
+                    // Get accounts without prompting
+                    const accounts = await window.ethereum.request({ 
+                        method: 'eth_accounts' // Use eth_accounts instead of eth_requestAccounts to avoid prompting
+                    });
+                    
+                    if (accounts && accounts.length > 0) {
+                        // User has wallet connected in browser
+                        provider = window.ethereum;
+                        selectedAccount = accounts[0];
+                        
+                        // Initialize Web3
+                        web3 = new Web3(provider);
+                        
+                        // Get network/chain ID
+                        const chainId = await provider.request({ method: 'eth_chainId' });
+                        currentChainId = parseInt(chainId, 16);
+                        
+                        // Setup provider events
+                        setupProviderEvents();
+                        
+                        // Update network display
+                        updateNetworkDisplay(currentChainId);
+                        
+                        // Update UI
+                        updateWalletUI(selectedAccount);
+                        console.log("Reconnected to wallet:", selectedAccount);
+                        
+                        return true;
+                    }
+                } catch (error) {
+                    console.error("Error checking wallet connection:", error);
+                }
             }
-        } else if (data.error) {
-            console.error("Server error checking connection:", data.error);
+            
+            // If we can't connect to the wallet directly but have a session,
+            // still update the UI so the user can reconnect easily
+            updateWalletUI(data.address);
+            selectedAccount = data.address;
+            showToast(`Welcome back! Your wallet ${truncateAddress(data.address)} is connected.`, 'info');
         }
     } catch (error) {
-        console.error("Network error checking wallet connection status:", error);
+        console.error("Error checking connection status:", error);
     }
+    
+    return false;
 }
 
 // Save wallet address to backend
@@ -573,28 +571,42 @@ function copyAddressToClipboard() {
 
 // Show toast notification
 function showToast(message, type = 'info') {
-    const toastContainer = document.getElementById('toastContainer');
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toastContainer');
+    
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'fixed bottom-4 right-4 z-50 flex flex-col items-end space-y-2';
+        document.body.appendChild(toastContainer);
+    }
     
     // Create toast element
     const toast = document.createElement('div');
-    toast.className = `animate__animated animate__fadeInUp mb-3 p-4 rounded-lg text-white font-medium flex items-center shadow-lg`;
+    toast.className = `animate__animated animate__fadeInUp mb-3 p-4 rounded-lg text-white font-medium flex items-center shadow-lg max-w-md`;
     
     // Set background color based on type
     if (type === 'success') {
         toast.classList.add('bg-green-600');
-        toast.innerHTML = `<i class="fas fa-check-circle mr-2"></i> ${message}`;
+        toast.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-2 flex-shrink-0">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+        </svg> ${message}`;
     } else if (type === 'error') {
         toast.classList.add('bg-red-600');
-        toast.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i> ${message}`;
+        toast.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-2 flex-shrink-0">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+        </svg> ${message}`;
     } else {
-        toast.classList.add('bg-blue-600');
-        toast.innerHTML = `<i class="fas fa-info-circle mr-2"></i> ${message}`;
+        toast.classList.add('bg-indigo-600');
+        toast.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-2 flex-shrink-0">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+        </svg> ${message}`;
     }
     
     // Add close button
     const closeBtn = document.createElement('button');
     closeBtn.className = 'ml-auto text-white/80 hover:text-white';
-    closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+    closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>';
     closeBtn.onclick = () => {
         removeToast(toast);
     };
@@ -621,14 +633,91 @@ function removeToast(toast) {
     }, 500);
 }
 
-// Simple initialization on page load
+// Add wallet connection modal to the page if it doesn't exist
+function ensureModalExists() {
+    if (!document.getElementById('walletConnectionStatus')) {
+        const modalHTML = `
+        <div id="walletConnectionStatus" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+            <div id="walletModalOverlay" class="absolute inset-0 bg-black bg-opacity-75 backdrop-blur-sm"></div>
+            <div class="relative bg-gray-900 rounded-xl max-w-md w-full mx-4 shadow-2xl border border-gray-700 overflow-hidden">
+                <!-- Loading State -->
+                <div id="connectionLoading" class="p-6">
+                    <div class="flex flex-col items-center text-center py-6">
+                        <div class="w-16 h-16 mb-6 relative">
+                            <div class="absolute inset-0 rounded-full border-4 border-indigo-500/30 animate-ping"></div>
+                            <div class="w-16 h-16 rounded-full border-4 border-t-indigo-600 border-indigo-500/30 animate-spin"></div>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">Connecting Wallet</h3>
+                        <p class="text-gray-400">Please confirm the connection in your wallet...</p>
+                    </div>
+                </div>
+                
+                <!-- Success State -->
+                <div id="connectionSuccess" class="p-6 hidden">
+                    <div class="flex flex-col items-center text-center py-6">
+                        <div class="w-16 h-16 mb-6 bg-green-500/20 rounded-full flex items-center justify-center text-green-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-10 h-10">
+                                <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">Wallet Connected!</h3>
+                        <p class="text-gray-400 mb-4">Your wallet has been successfully connected.</p>
+                        <div class="bg-gray-800 rounded-lg p-3 flex items-center justify-between w-full">
+                            <span id="connectedAddress" class="font-mono text-indigo-400"></span>
+                            <span class="flex items-center gap-1.5 text-xs bg-green-500/20 text-green-500 px-2 py-0.5 rounded-full">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Connected
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex justify-end bg-gray-800/50 p-4 -mx-6 -mb-6 border-t border-gray-700/50">
+                        <button id="continueBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white transition">Continue</button>
+                    </div>
+                </div>
+                
+                <!-- Error State -->
+                <div id="connectionError" class="p-6 hidden">
+                    <div class="flex flex-col items-center text-center py-6">
+                        <div class="w-16 h-16 mb-6 bg-red-500/20 rounded-full flex items-center justify-center text-red-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-10 h-10">
+                                <path fill-rule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">Connection Error</h3>
+                        <p id="errorMessage" class="text-gray-400 mb-4">Unable to connect to wallet. Please try again.</p>
+                    </div>
+                    <div class="flex justify-end gap-3 bg-gray-800/50 p-4 -mx-6 -mb-6 border-t border-gray-700/50">
+                        <button id="closeErrorBtn" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition">Close</button>
+                        <button id="retryBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white transition">Try Again</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        
+        // Add modal to the body
+        const modalContainer = document.createElement('div');
+        modalContainer.innerHTML = modalHTML;
+        document.body.appendChild(modalContainer.firstElementChild);
+    }
+}
+
+// Initialize wallet features on page load
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("DOM loaded, initializing Web3Modal...");
-    setTimeout(initWeb3Modal, 100); // Small delay to ensure libraries are loaded
+    console.log("DOM loaded, initializing wallet connection...");
+    
+    // Ensure modal exists
+    ensureModalExists();
+    
+    // Initialize wallet connection
+    initWalletConnection();
 });
 
 // Backup initialization if DOMContentLoaded already happened
 if (document.readyState === 'interactive' || document.readyState === 'complete') {
-    console.log("Document already loaded, initializing Web3Modal directly...");
-    setTimeout(initWeb3Modal, 100);
+    console.log("Document already loaded, initializing wallet connection directly...");
+    
+    // Ensure modal exists
+    ensureModalExists();
+    
+    // Initialize wallet connection
+    initWalletConnection();
 }

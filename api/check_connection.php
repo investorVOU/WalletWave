@@ -45,7 +45,7 @@ try {
         
         if ($userId) {
             // User is logged in, check user_wallets
-            $stmt = $pdo->prepare("SELECT address, is_connected FROM user_wallets WHERE user_id = ? AND is_connected = 1 ORDER BY last_connected DESC LIMIT 1");
+            $stmt = $pdo->prepare("SELECT address, is_connected FROM user_wallets WHERE user_id = ? AND is_connected = true ORDER BY last_connected DESC LIMIT 1");
             $stmt->execute([$userId]);
             $wallet = $stmt->fetch(PDO::FETCH_ASSOC);
             
@@ -61,7 +61,7 @@ try {
             // User is not logged in, check guest_wallets
             $sessionId = session_id();
             if ($sessionId) {
-                $stmt = $pdo->prepare("SELECT address, is_connected FROM guest_wallets WHERE session_id = ? AND is_connected = 1 ORDER BY last_connected DESC LIMIT 1");
+                $stmt = $pdo->prepare("SELECT address, is_connected FROM guest_wallets WHERE session_id = ? AND is_connected = true ORDER BY last_connected DESC LIMIT 1");
                 $stmt->execute([$sessionId]);
                 $wallet = $stmt->fetch(PDO::FETCH_ASSOC);
                 
