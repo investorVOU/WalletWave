@@ -1,7 +1,7 @@
 /**
  * Web3Modal Wallet Connection Module
  * Handles wallet connection functionality using Web3Modal
- * Enhanced to support both desktop and mobile wallets
+ * Enhanced to support both desktop and mobile wallets and multiple networks
  * 
  * This module has been simplified to increase compatibility
  * across different environments and wallets
@@ -12,6 +12,92 @@ let web3;
 let provider;
 let web3Modal;
 let selectedAccount = null;
+let currentChainId = null;
+
+// Supported networks configuration
+const NETWORKS = {
+    // Mainnets
+    1: {
+        name: "Ethereum Mainnet",
+        shortName: "Ethereum",
+        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+        rpcUrl: "https://mainnet.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1",
+        blockExplorerUrl: "https://etherscan.io",
+        iconClass: "ethereum",
+        color: "#627EEA"
+    },
+    56: {
+        name: "Binance Smart Chain",
+        shortName: "BSC",
+        nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+        rpcUrl: "https://bsc-dataseed.binance.org/",
+        blockExplorerUrl: "https://bscscan.com",
+        iconClass: "binance",
+        color: "#F3BA2F"
+    },
+    137: {
+        name: "Polygon Mainnet",
+        shortName: "Polygon",
+        nativeCurrency: { name: "MATIC", symbol: "MATIC", decimals: 18 },
+        rpcUrl: "https://polygon-rpc.com",
+        blockExplorerUrl: "https://polygonscan.com",
+        iconClass: "polygon",
+        color: "#8247E5"
+    },
+    42161: {
+        name: "Arbitrum One",
+        shortName: "Arbitrum",
+        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+        rpcUrl: "https://arb1.arbitrum.io/rpc",
+        blockExplorerUrl: "https://arbiscan.io",
+        iconClass: "arbitrum",
+        color: "#28A0F0"
+    },
+    10: {
+        name: "Optimism",
+        shortName: "Optimism",
+        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+        rpcUrl: "https://mainnet.optimism.io",
+        blockExplorerUrl: "https://optimistic.etherscan.io",
+        iconClass: "optimism",
+        color: "#FF0420"
+    },
+    
+    // Testnets
+    5: {
+        name: "Goerli Testnet",
+        shortName: "Goerli",
+        testnet: true,
+        nativeCurrency: { name: "Goerli Ether", symbol: "GoerliETH", decimals: 18 },
+        rpcUrl: "https://goerli.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1",
+        blockExplorerUrl: "https://goerli.etherscan.io",
+        iconClass: "ethereum",
+        color: "#3099f2"
+    },
+    80001: {
+        name: "Mumbai Testnet",
+        shortName: "Mumbai",
+        testnet: true,
+        nativeCurrency: { name: "Testnet MATIC", symbol: "tMATIC", decimals: 18 },
+        rpcUrl: "https://rpc-mumbai.maticvigil.com",
+        blockExplorerUrl: "https://mumbai.polygonscan.com",
+        iconClass: "polygon",
+        color: "#8247E5"
+    },
+    97: {
+        name: "BSC Testnet",
+        shortName: "BSC Testnet",
+        testnet: true,
+        nativeCurrency: { name: "Testnet BNB", symbol: "tBNB", decimals: 18 },
+        rpcUrl: "https://data-seed-prebsc-1-s1.binance.org:8545/",
+        blockExplorerUrl: "https://testnet.bscscan.com",
+        iconClass: "binance",
+        color: "#F3BA2F"
+    }
+};
+
+// Default network (Ethereum Mainnet)
+const DEFAULT_CHAIN_ID = 1;
 
 // Initialize Web3Modal with a more simplified approach
 function initWeb3Modal() {
@@ -38,16 +124,18 @@ function initWeb3Modal() {
             
             console.log("WalletConnect provider found, adding to options");
             
-            // Add WalletConnect
+            // Generate RPC configuration from supported networks
+            const rpcConfig = {};
+            Object.keys(NETWORKS).forEach(chainId => {
+                rpcConfig[chainId] = NETWORKS[chainId].rpcUrl;
+            });
+            
+            // Add WalletConnect with all supported networks
             providerOptions.walletconnect = {
                 package: WCProvider,
                 options: {
                     infuraId: "27e484dcd9e3efcfd25a83a78777cdf1",
-                    rpc: {
-                        1: "https://mainnet.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1",
-                        56: "https://bsc-dataseed.binance.org/",
-                        137: "https://polygon-rpc.com/"
-                    },
+                    rpc: rpcConfig,
                     qrcodeModalOptions: {
                         mobileLinks: [
                             "metamask",
