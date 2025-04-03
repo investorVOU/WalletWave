@@ -174,9 +174,12 @@ if ($walletConnected && $campaignId > 0) {
                                 <?php echo htmlspecialchars($campaign['category'] ?? 'General'); ?>
                             </span>
                             
-                            <span class="bg-purple-600/20 text-purple-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                            <span class="<?php echo strpos(strtolower($campaign['network_name'] ?? ''), 'testnet') !== false ? 'bg-blue-600/20 text-blue-400' : 'bg-purple-600/20 text-purple-400'; ?> px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
                                 <i class="fas fa-network-wired text-xs"></i>
                                 <?php echo htmlspecialchars($campaign['network_name'] ?? 'Unknown Network'); ?>
+                                <?php if (strpos(strtolower($campaign['network_name'] ?? ''), 'testnet') !== false): ?>
+                                    <span class="ml-1 bg-blue-500/20 px-1 rounded text-[10px]">TESTNET</span>
+                                <?php endif; ?>
                             </span>
                             
                             <?php if ($campaign['staking_enabled']): ?>
@@ -317,6 +320,12 @@ if ($walletConnected && $campaignId > 0) {
                     <h3 class="text-xl font-bold mb-4 flex items-center">
                         <i class="fas fa-hand-holding-usd text-blue-400 mr-2"></i> Stake on this Campaign
                     </h3>
+                    
+                    <?php if (strpos(strtolower($campaign['network_name'] ?? ''), 'testnet') !== false): ?>
+                    <div class="bg-blue-500/10 border border-blue-500/20 text-blue-400 px-4 py-2 rounded-lg mb-4 text-sm">
+                        <p><i class="fas fa-info-circle mr-2"></i> This campaign is on <b><?php echo htmlspecialchars($campaign['network_name']); ?></b>. Use test <?php echo htmlspecialchars($campaign['token_symbol']); ?> for transactions.</p>
+                    </div>
+                    <?php endif; ?>
                     
                     <?php if ($formError): ?>
                     <div class="bg-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-4">

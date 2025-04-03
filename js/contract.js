@@ -38,6 +38,59 @@ async function initializeContract() {
         // Get the provider
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         
+        // Get the current network
+        const network = await provider.getNetwork();
+        console.log('Current network:', network);
+        
+        // Check if we're on the correct network
+        if (contractData.networkId && network.chainId !== contractData.networkId) {
+            console.warn(`Contract is deployed on ${contractData.networkName} (chainId: ${contractData.networkId}), but you're connected to chainId: ${network.chainId}`);
+            
+            // Prompt user to switch networks
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x' + contractData.networkId.toString(16) }], // Convert to hex
+                });
+                
+                // Wait for the network to switch and reload the page
+                return false;
+            } catch (switchError) {
+                // This error code indicates that the chain has not been added to MetaMask
+                if (switchError.code === 4902) {
+                    try {
+                        // If chain is not available, add it to the wallet
+                        const testnetParams = {
+                            chainId: '0x' + contractData.networkId.toString(16),
+                            chainName: contractData.networkName,
+                            nativeCurrency: {
+                                name: 'Goerli ETH',
+                                symbol: 'GoerliETH',
+                                decimals: 18
+                            },
+                            rpcUrls: ['https://goerli.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'],
+                            blockExplorerUrls: ['https://goerli.etherscan.io/']
+                        };
+                        
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [testnetParams],
+                        });
+                        
+                        return false;
+                    } catch (addError) {
+                        console.error('Error adding Ethereum chain:', addError);
+                        showToast('Please manually switch to ' + contractData.networkName + ' to interact with the contract', 'error');
+                        return false;
+                    }
+                } else {
+                    console.error('Error switching network:', switchError);
+                    showToast('Please manually switch to ' + contractData.networkName + ' to interact with the contract', 'error');
+                    return false;
+                }
+            }
+        }
+        
         // Get the signer (account)
         const signer = provider.getSigner();
         
@@ -48,7 +101,13 @@ async function initializeContract() {
             signer
         );
         
-        console.log('Contract initialized:', cryptoFundContract.address);
+        console.log('Contract initialized on testnet:', cryptoFundContract.address);
+        
+        // Show testnet info
+        if (contractData.networkId === 5) {
+            showToast('You are connected to Goerli Testnet. Use test ETH for transactions.', 'info');
+        }
+        
         return true;
     } catch (error) {
         console.error('Error initializing contract:', error);
@@ -217,6 +276,61 @@ async function getStakingContribution(campaignId, address) {
     }
 }
 
+// Show toast notification - relay to wallet.js if available or create a local version
+function showToast(message, type = 'info') {
+    // First try to use the showToast function from wallet.js if it exists
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+        return;
+    }
+    
+    // If wallet.js showToast isn't available, create a simpler version here
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toastContainer');
+    
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'fixed bottom-4 right-4 z-50 flex flex-col items-end space-y-2';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `mb-3 p-4 rounded-lg text-white font-medium flex items-center shadow-lg max-w-md transition-all duration-300 ease-in-out`;
+    
+    // Set background color based on type
+    if (type === 'success') {
+        toast.classList.add('bg-green-600');
+    } else if (type === 'error') {
+        toast.classList.add('bg-red-600');
+    } else {
+        toast.classList.add('bg-indigo-600');
+    }
+    
+    toast.textContent = message;
+    
+    // Add to container
+    toastContainer.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+        toast.classList.add('opacity-100');
+    }, 10);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        toast.classList.add('opacity-0');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 5000);
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('Initializing contract...');
@@ -233,6 +347,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await initializeContract();
             } else {
                 cryptoFundContract = null;
+            }
+        });
+        
+        // Set up network change listener
+        window.ethereum.on('chainChanged', async () => {
+            if (window.ethereum.selectedAddress) {
+                await initializeContract();
             }
         });
     }

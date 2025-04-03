@@ -93,8 +93,8 @@ const NETWORKS = {
     }
 };
 
-// Default network (Ethereum Mainnet)
-const DEFAULT_CHAIN_ID = 1;
+// Default network (Goerli Testnet for testing with test tokens)
+const DEFAULT_CHAIN_ID = 5; // Goerli Testnet
 
 // Initialize wallet functionality
 function initWalletConnection() {
