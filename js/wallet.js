@@ -61,6 +61,16 @@ const NETWORKS = {
     },
     
     // Testnets
+    11155111: {
+        name: "Sepolia Testnet",
+        shortName: "Sepolia",
+        testnet: true,
+        nativeCurrency: { name: "Sepolia Ether", symbol: "SepoliaETH", decimals: 18 },
+        rpcUrl: "https://sepolia.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1",
+        blockExplorerUrl: "https://sepolia.etherscan.io",
+        iconClass: "ethereum",
+        color: "#25A799"
+    },
     5: {
         name: "Goerli Testnet",
         shortName: "Goerli",
@@ -93,8 +103,8 @@ const NETWORKS = {
     }
 };
 
-// Default network (Goerli Testnet for testing with test tokens)
-const DEFAULT_CHAIN_ID = 5; // Goerli Testnet
+// Default network (Sepolia Testnet for testing with test tokens)
+const DEFAULT_CHAIN_ID = 11155111; // Sepolia Testnet
 
 // Initialize wallet functionality
 function initWalletConnection() {

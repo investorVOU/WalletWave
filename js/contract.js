@@ -60,21 +60,67 @@ async function initializeContract() {
                 if (switchError.code === 4902) {
                     try {
                         // If chain is not available, add it to the wallet
-                        const testnetParams = {
-                            chainId: '0x' + contractData.networkId.toString(16),
-                            chainName: contractData.networkName,
-                            nativeCurrency: {
-                                name: 'Goerli ETH',
-                                symbol: 'GoerliETH',
-                                decimals: 18
-                            },
-                            rpcUrls: ['https://goerli.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'],
-                            blockExplorerUrls: ['https://goerli.etherscan.io/']
-                        };
+                        let networkParams = {};
+                        
+                        // Dynamically set network parameters based on chain ID
+                        switch (contractData.networkId) {
+                            case 11155111: // Sepolia
+                                networkParams = {
+                                    chainId: '0x' + contractData.networkId.toString(16),
+                                    chainName: 'Sepolia Testnet',
+                                    nativeCurrency: {
+                                        name: 'Sepolia ETH',
+                                        symbol: 'SepoliaETH',
+                                        decimals: 18
+                                    },
+                                    rpcUrls: ['https://sepolia.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'],
+                                    blockExplorerUrls: ['https://sepolia.etherscan.io/']
+                                };
+                                break;
+                            case 5: // Goerli
+                                networkParams = {
+                                    chainId: '0x' + contractData.networkId.toString(16),
+                                    chainName: 'Goerli Testnet',
+                                    nativeCurrency: {
+                                        name: 'Goerli ETH',
+                                        symbol: 'GoerliETH',
+                                        decimals: 18
+                                    },
+                                    rpcUrls: ['https://goerli.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'],
+                                    blockExplorerUrls: ['https://goerli.etherscan.io/']
+                                };
+                                break;
+                            case 80001: // Mumbai
+                                networkParams = {
+                                    chainId: '0x' + contractData.networkId.toString(16),
+                                    chainName: 'Mumbai Testnet',
+                                    nativeCurrency: {
+                                        name: 'Testnet MATIC',
+                                        symbol: 'tMATIC',
+                                        decimals: 18
+                                    },
+                                    rpcUrls: ['https://rpc-mumbai.maticvigil.com'],
+                                    blockExplorerUrls: ['https://mumbai.polygonscan.com/']
+                                };
+                                break;
+                            default:
+                                // Default parameters (using whatever data we have)
+                                networkParams = {
+                                    chainId: '0x' + contractData.networkId.toString(16),
+                                    chainName: contractData.networkName,
+                                    nativeCurrency: {
+                                        name: 'ETH',
+                                        symbol: 'ETH',
+                                        decimals: 18
+                                    },
+                                    rpcUrls: ['https://sepolia.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'], // Default to Sepolia
+                                    blockExplorerUrls: ['https://sepolia.etherscan.io/']
+                                };
+                        }
                         
                         await window.ethereum.request({
                             method: 'wallet_addEthereumChain',
-                            params: [testnetParams],
+                            params: [networkParams],
                         });
                         
                         return false;
@@ -101,11 +147,17 @@ async function initializeContract() {
             signer
         );
         
-        console.log('Contract initialized on testnet:', cryptoFundContract.address);
+        console.log('Contract initialized on network:', contractData.networkName, cryptoFundContract.address);
         
-        // Show testnet info
-        if (contractData.networkId === 5) {
+        // Show testnet info if applicable
+        if (contractData.networkId === 11155111) {
+            showToast('You are connected to Sepolia Testnet. Use test ETH for transactions.', 'info');
+        } else if (contractData.networkId === 5) {
             showToast('You are connected to Goerli Testnet. Use test ETH for transactions.', 'info');
+        } else if (contractData.networkId === 80001) {
+            showToast('You are connected to Mumbai Testnet. Use test MATIC for transactions.', 'info');
+        } else if (contractData.networkName && contractData.networkName.toLowerCase().includes('testnet')) {
+            showToast(`You are connected to ${contractData.networkName}. Use test tokens for transactions.`, 'info');
         }
         
         return true;
