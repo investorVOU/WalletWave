@@ -9,29 +9,71 @@ let cryptoFundContract = null;
 // Load contract data
 async function loadContractData() {
     try {
+        console.log('Fetching contract-data.json...');
         const response = await fetch('/contract-data.json');
+        
         if (!response.ok) {
-            throw new Error('Failed to load contract data');
+            console.error('Failed to load contract data:', {
+                status: response.status,
+                statusText: response.statusText
+            });
+            throw new Error(`Failed to load contract data: ${response.status} ${response.statusText}`);
         }
-        return await response.json();
+        
+        console.log('Contract data response received successfully');
+        const data = await response.json();
+        console.log('Contract data parsed successfully');
+        
+        return data;
     } catch (error) {
         console.error('Error loading contract data:', error);
+        console.log('Contract data error details:', {
+            message: error.message,
+            stack: error.stack
+        });
+        
+        // Show a user-friendly message
+        if (typeof window.showToast === 'function') {
+            window.showToast('Error loading contract data. Please check your connection and try again.', 'error');
+        }
+        
         return null;
     }
 }
 
 // Initialize contract
 async function initializeContract() {
+    console.log('Initializing contract with web3 provider...');
+    
     // Check if Web3 is available
-    if (!window.ethereum && !window.web3) {
-        console.error('Web3 not available');
+    if (!window.ethereum) {
+        console.error('Web3 provider not available. Please install MetaMask or a compatible wallet.');
+        showToast('Please install MetaMask or a compatible wallet to use all features.', 'error');
+        return false;
+    }
+    
+    // Check if connected
+    if (!window.ethereum.isConnected()) {
+        console.error('Web3 provider is not connected');
+        showToast('Your wallet is not connected. Please connect your wallet to continue.', 'error');
         return false;
     }
     
     try {
         // Get the contract data
+        console.log('Loading contract data from JSON file...');
         const contractData = await loadContractData();
+        
+        // Log the data to verify it loaded correctly
+        console.log('Contract data loaded:', {
+            address: contractData?.address,
+            networkId: contractData?.networkId,
+            networkName: contractData?.networkName,
+            hasAbi: contractData?.abi ? 'Yes (length: ' + contractData.abi.length + ')' : 'No'
+        });
+        
         if (!contractData) {
+            console.error('Failed to load contract data, aborting initialization');
             return false;
         }
         
@@ -48,11 +90,20 @@ async function initializeContract() {
             
             // Prompt user to switch networks
             try {
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0x' + contractData.networkId.toString(16) }], // Convert to hex
+                // Log the network we're trying to switch to
+                const targetChainIdHex = '0x' + contractData.networkId.toString(16);
+                console.log('Attempting to switch to network:', {
+                    networkId: contractData.networkId,
+                    networkName: contractData.networkName,
+                    chainIdHex: targetChainIdHex
                 });
                 
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: targetChainIdHex }], // Convert to hex
+                });
+                
+                console.log('Network switch request sent successfully');
                 // Wait for the network to switch and reload the page
                 return false;
             } catch (switchError) {
@@ -73,7 +124,7 @@ async function initializeContract() {
                                         symbol: 'SepoliaETH',
                                         decimals: 18
                                     },
-                                    rpcUrls: ['https://sepolia.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'],
+                                    rpcUrls: ['https://rpc.sepolia.org', 'https://sepolia.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'],
                                     blockExplorerUrls: ['https://sepolia.etherscan.io/']
                                 };
                                 break;
@@ -113,25 +164,39 @@ async function initializeContract() {
                                         symbol: 'ETH',
                                         decimals: 18
                                     },
-                                    rpcUrls: ['https://sepolia.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'], // Default to Sepolia
+                                    rpcUrls: ['https://rpc.sepolia.org', 'https://sepolia.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'], // Multiple Sepolia endpoints
                                     blockExplorerUrls: ['https://sepolia.etherscan.io/']
                                 };
                         }
+                        
+                        console.log('Adding network to wallet:', networkParams);
                         
                         await window.ethereum.request({
                             method: 'wallet_addEthereumChain',
                             params: [networkParams],
                         });
                         
+                        console.log('Network add request sent successfully');
+                        
                         return false;
                     } catch (addError) {
                         console.error('Error adding Ethereum chain:', addError);
-                        showToast('Please manually switch to ' + contractData.networkName + ' to interact with the contract', 'error');
+                        console.log('Error details:', {
+                            message: addError.message,
+                            code: addError.code,
+                            data: addError.data
+                        });
+                        showToast('Network switch failed. Please manually switch to ' + contractData.networkName + ' in your wallet to interact with our contract.', 'error');
                         return false;
                     }
                 } else {
                     console.error('Error switching network:', switchError);
-                    showToast('Please manually switch to ' + contractData.networkName + ' to interact with the contract', 'error');
+                    console.log('Switch error details:', {
+                        message: switchError.message,
+                        code: switchError.code,
+                        data: switchError.data
+                    });
+                    showToast('Network switch failed. Please manually switch to ' + contractData.networkName + ' in your wallet to interact with our contract.', 'error');
                     return false;
                 }
             }
@@ -163,6 +228,13 @@ async function initializeContract() {
         return true;
     } catch (error) {
         console.error('Error initializing contract:', error);
+        console.log('Error details:', {
+            message: error.message,
+            code: error.code,
+            stack: error.stack,
+            data: error.data
+        });
+        showToast('Error initializing contract. Check console for details.', 'error');
         return false;
     }
 }
