@@ -1,6 +1,10 @@
 /**
  * Web3Modal Wallet Connection Module
  * Handles wallet connection functionality using Web3Modal
+ * Enhanced to support both desktop and mobile wallets
+ * 
+ * This module has been simplified to increase compatibility
+ * across different environments and wallets
  */
 
 // Global variables
@@ -9,93 +13,80 @@ let provider;
 let web3Modal;
 let selectedAccount = null;
 
-// Initialize Web3Modal
+// Initialize Web3Modal with a more simplified approach
 function initWeb3Modal() {
     try {
-        // Make sure scripts are fully loaded before initializing
-        if (typeof window.Web3Modal === 'undefined' && typeof Web3Modal === 'undefined') {
-            console.warn("Web3Modal not loaded yet, will retry in 1 second...");
-            setTimeout(initWeb3Modal, 1000); // Retry after 1 second
+        console.log("Initializing Web3Modal...");
+        
+        // Check if Web3Modal is available
+        if (typeof Web3Modal !== 'function' && typeof window.Web3Modal !== 'function') {
+            console.warn("Web3Modal not available yet, will retry in 800ms");
+            setTimeout(initWeb3Modal, 800);
             return;
         }
         
-        // Safely access Web3Modal constructor from global object or window
-        const Web3ModalConstructor = (typeof Web3Modal !== 'undefined') ? Web3Modal : 
-                                    (typeof window.Web3Modal !== 'undefined') ? window.Web3Modal : null;
+        // Get the proper Web3Modal constructor
+        const Web3ModalConstructor = typeof Web3Modal === 'function' ? Web3Modal : window.Web3Modal;
         
-        // If Web3Modal is still not available after waiting
-        if (!Web3ModalConstructor) {
-            console.error("Web3Modal library could not be loaded");
-            addFallbackListeners();
-            return;
-        }
-        
-        // Safely get WalletConnectProvider (if available)
-        let WalletConnectProviderPackage = null;
-        // Check for WalletConnectProvider in different possible locations
-        if (typeof window.WalletConnectProvider !== 'undefined') {
-            WalletConnectProviderPackage = window.WalletConnectProvider;
-        } else if (typeof WalletConnectProvider !== 'undefined') {
-            WalletConnectProviderPackage = WalletConnectProvider;
-        } else if (window.WalletConnectProvider) {
-            WalletConnectProviderPackage = window.WalletConnectProvider;
-        }
-        
-        // Configure provider options
+        // Set up WalletConnect provider if available
         const providerOptions = {};
         
-        // Add WalletConnect if available
-        if (WalletConnectProviderPackage) {
+        // Check for WalletConnect provider availability
+        if (typeof WalletConnectProvider === 'function' || typeof window.WalletConnectProvider === 'function') {
+            const WCProvider = typeof WalletConnectProvider === 'function' ? 
+                               WalletConnectProvider : window.WalletConnectProvider;
+            
             console.log("WalletConnect provider found, adding to options");
-            try {
-                providerOptions.walletconnect = {
-                    package: WalletConnectProviderPackage,
-                    options: {
-                        infuraId: "27e484dcd9e3efcfd25a83a78777cdf1", // Infura ID
-                        rpc: {
-                            1: "https://mainnet.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1",
-                            3: "https://ropsten.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1",
-                            4: "https://rinkeby.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1",
-                            5: "https://goerli.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1",
-                        }
+            
+            // Add WalletConnect
+            providerOptions.walletconnect = {
+                package: WCProvider,
+                options: {
+                    infuraId: "27e484dcd9e3efcfd25a83a78777cdf1",
+                    rpc: {
+                        1: "https://mainnet.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1",
+                        56: "https://bsc-dataseed.binance.org/",
+                        137: "https://polygon-rpc.com/"
+                    },
+                    qrcodeModalOptions: {
+                        mobileLinks: [
+                            "metamask",
+                            "trust",
+                            "coinbase",
+                            "rainbow",
+                            "zerion",
+                            "okxwallet"
+                        ]
                     }
-                };
-            } catch (wcError) {
-                console.error("Error configuring WalletConnect:", wcError);
-                // Continue without WalletConnect
-            }
+                }
+            };
         } else {
-            console.warn("WalletConnectProvider not found, continuing without WalletConnect support");
+            console.warn("WalletConnect provider not available");
         }
         
-        // Initialize Web3Modal with robust configuration
-        try {
-            web3Modal = new Web3ModalConstructor({
-                cacheProvider: true,
-                providerOptions: providerOptions,
-                disableInjectedProvider: false,
-                theme: {
-                    background: "rgb(15, 23, 42)",
-                    main: "rgb(255, 255, 255)",
-                    secondary: "rgb(148, 163, 184)",
-                    border: "rgba(59, 130, 246, 0.3)",
-                    hover: "rgb(30, 41, 59)"
-                }
-            });
-            
-            console.log("Web3Modal initialized successfully");
-            
-            // Setup event listeners for connect buttons
-            setupConnectButtonListeners();
-            
-            // Check if user was previously connected
-            checkConnection();
-        } catch (modalError) {
-            console.error("Error creating Web3Modal instance:", modalError);
-            addFallbackListeners();
-        }
+        // Create Web3Modal instance with simplified configuration
+        web3Modal = new Web3ModalConstructor({
+            cacheProvider: true,
+            providerOptions: providerOptions,
+            disableInjectedProvider: false,
+            theme: {
+                background: "rgb(15, 23, 42)",
+                main: "rgb(255, 255, 255)",
+                secondary: "rgb(148, 163, 184)",
+                border: "rgba(59, 130, 246, 0.3)",
+                hover: "rgb(30, 41, 59)"
+            }
+        });
+        
+        console.log("Web3Modal initialized successfully");
+        
+        // Setup listeners and check for existing connection
+        setupConnectButtonListeners();
+        checkConnection();
+        
     } catch (error) {
-        console.error("Failed to initialize Web3Modal:", error);
+        console.error("Error initializing Web3Modal:", error);
+        // Set up fallback listeners if initialization fails
         addFallbackListeners();
     }
 }
@@ -160,7 +151,7 @@ function setupConnectButtonListeners() {
 function addFallbackListeners() {
     document.querySelectorAll('.connect-wallet-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            showToast('Wallet connection is not available. Please make sure you have MetaMask or another wallet extension installed.', 'error');
+            showToast('Wallet connection is not available. Please make sure you have MetaMask or a mobile wallet like Trust Wallet, Coinbase Wallet, or MetaMask Mobile.', 'error');
         });
     });
 }
@@ -185,7 +176,7 @@ async function connectWallet() {
             if (connectError.message) {
                 errorMessage += connectError.message;
             } else {
-                errorMessage += "Please make sure you have a compatible wallet extension like MetaMask installed.";
+                errorMessage += "Please make sure you have a compatible wallet like MetaMask, Trust Wallet, Coinbase Wallet, or OKX Wallet installed and activated.";
             }
             
             showConnectionModal('error', errorMessage);
@@ -542,5 +533,14 @@ function removeToast(toast) {
     }, 500);
 }
 
-// Initialize module on page load
-document.addEventListener('DOMContentLoaded', initWeb3Modal);
+// Simple initialization on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("DOM loaded, initializing Web3Modal...");
+    setTimeout(initWeb3Modal, 100); // Small delay to ensure libraries are loaded
+});
+
+// Backup initialization if DOMContentLoaded already happened
+if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    console.log("Document already loaded, initializing Web3Modal directly...");
+    setTimeout(initWeb3Modal, 100);
+}
