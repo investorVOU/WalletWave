@@ -672,19 +672,52 @@ if ($walletConnected && $campaignId > 0) {
                     }
                     
                     const amount = parseFloat(document.getElementById('fundAmount').value);
+                    const campaignId = document.getElementById('campaignId').value;
+                    
                     if (isNaN(amount) || amount <= 0) {
                         throw new Error('Please enter a valid amount');
+                    }
+                    
+                    if (!campaignId) {
+                        throw new Error('Campaign ID is missing');
                     }
                     
                     // Simulate blockchain delay
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     
+                    // Generate a transaction hash for demo purposes
+                    const fakeHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+                    
+                    // Save contribution to database
+                    const response = await fetch('/api/contribute.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            campaign_id: campaignId,
+                            amount: amount,
+                            wallet_address: selectedAccount,
+                            transaction_hash: fakeHash,
+                            staking: false // Direct funding, not staking
+                        }),
+                    });
+                    
+                    const data = await response.json();
+                    console.log("Contribution response:", data);
+                    
+                    if (!data.success) {
+                        throw new Error(data.message || 'Failed to record contribution');
+                    }
+                    
+                    // Update the UI with transaction info
                     document.getElementById('txProcessing').classList.add('hidden');
                     document.getElementById('txSuccess').classList.remove('hidden');
-                    
-                    const fakeHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
                     document.getElementById('txHash').textContent = fakeHash.substring(0, 10) + '...' + fakeHash.substring(fakeHash.length - 8);
-                    document.getElementById('viewTxLink').href = `${networkInfo.block_explorer_url}/tx/${fakeHash}`;
+                    
+                    if (networkInfo && networkInfo.block_explorer_url) {
+                        document.getElementById('viewTxLink').href = `${networkInfo.block_explorer_url}/tx/${fakeHash}`;
+                    }
                     
                 } catch (error) {
                     console.error('Funding error:', error);

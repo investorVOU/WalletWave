@@ -63,12 +63,13 @@ try {
     }
     
     // Insert contribution
+    // Use wallet address as identifier rather than wallet database ID 
+    // This avoids issues with the foreign key constraints
     $stmt = $pdo->prepare("INSERT INTO contributions 
-        (campaign_id, user_id, amount, wallet_address, transaction_hash, status, created_at) 
-        VALUES (?, ?, ?, ?, ?, 'confirmed', CURRENT_TIMESTAMP)");
+        (campaign_id, amount, wallet_address, transaction_hash, status, created_at) 
+        VALUES (?, ?, ?, ?, 'confirmed', CURRENT_TIMESTAMP)");
     $stmt->execute([
         $data['campaign_id'],
-        $wallet['id'],
         $data['amount'],
         $data['wallet_address'],
         $data['transaction_hash']
