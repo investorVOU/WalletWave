@@ -350,7 +350,7 @@ function updateNetworkDisplay(chainId) {
 async function checkConnection() {
     // Check with the backend if there's an active session
     try {
-        const response = await fetch('api/check_connection.php');
+        const response = await fetch('/api/check_connection.php');
         const data = await response.json();
         
         if (data.success && data.connected && data.address) {
@@ -368,6 +368,13 @@ async function checkConnection() {
                         // User has wallet connected in browser
                         provider = window.ethereum;
                         selectedAccount = accounts[0];
+                        
+                        // If the account in the session is different from the one in the wallet,
+                        // update the session with the current wallet account
+                        if (selectedAccount.toLowerCase() !== data.address.toLowerCase()) {
+                            console.log("Wallet account changed, updating session...");
+                            await saveWalletAddress(selectedAccount);
+                        }
                         
                         // Initialize Web3
                         web3 = new Web3(provider);
@@ -387,6 +394,46 @@ async function checkConnection() {
                         console.log("Reconnected to wallet:", selectedAccount);
                         
                         return true;
+                    } else {
+                        // Wallet is available but no accounts are connected
+                        // We still have a server-side session, so try to reconnect
+                        console.log("Session exists but wallet is disconnected. Attempting to reconnect...");
+                        
+                        try {
+                            // Try to reconnect wallet
+                            const reconnectedAccounts = await window.ethereum.request({ 
+                                method: 'eth_requestAccounts'
+                            });
+                            
+                            if (reconnectedAccounts && reconnectedAccounts.length > 0) {
+                                // Successfully reconnected
+                                provider = window.ethereum;
+                                selectedAccount = reconnectedAccounts[0];
+                                
+                                // Initialize Web3
+                                web3 = new Web3(provider);
+                                
+                                // Get network/chain ID
+                                const chainId = await provider.request({ method: 'eth_chainId' });
+                                currentChainId = parseInt(chainId, 16);
+                                
+                                // Setup provider events
+                                setupProviderEvents();
+                                
+                                // Update network display
+                                updateNetworkDisplay(currentChainId);
+                                
+                                // Update UI
+                                updateWalletUI(selectedAccount);
+                                console.log("Auto-reconnected to wallet:", selectedAccount);
+                                
+                                return true;
+                            }
+                        } catch (reconnectError) {
+                            console.log("Auto-reconnect failed:", reconnectError);
+                            // User rejected the reconnection, clear the session
+                            await removeWalletAddress();
+                        }
                     }
                 } catch (error) {
                     console.error("Error checking wallet connection:", error);
@@ -409,7 +456,7 @@ async function checkConnection() {
 // Save wallet address to backend
 async function saveWalletAddress(address) {
     try {
-        const response = await fetch('api/connect.php', {
+        const response = await fetch('/api/connect.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -439,7 +486,7 @@ async function updateWalletAddress(address) {
 // Remove wallet address from backend
 async function removeWalletAddress() {
     try {
-        const response = await fetch('api/disconnect.php', {
+        const response = await fetch('/api/disconnect.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

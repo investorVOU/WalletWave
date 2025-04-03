@@ -73,16 +73,36 @@ try {
         // User is not logged in, store in session
         $_SESSION['wallet_address'] = $address;
         
-        // Also insert into guest_wallets table - using PostgreSQL compatible approach
+        // Check if this address is already in guest_wallets - if so, update its session and connection status
         $stmt = $pdo->prepare("
-            INSERT INTO guest_wallets (address, session_id, created_at, updated_at) 
-            VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ON CONFLICT (session_id) 
-            DO UPDATE SET 
-                address = EXCLUDED.address, 
-                updated_at = CURRENT_TIMESTAMP
+            SELECT id, session_id FROM guest_wallets WHERE address = ? LIMIT 1
         ");
-        $stmt->execute([$address, session_id()]);
+        $stmt->execute([$address]);
+        $existingWallet = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($existingWallet) {
+            // This wallet already exists, update its session_id and set it as connected
+            $stmt = $pdo->prepare("
+                UPDATE guest_wallets 
+                SET session_id = ?, 
+                    is_connected = TRUE, 
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE address = ?
+            ");
+            $stmt->execute([session_id(), $address]);
+        } else {
+            // This is a new wallet address, insert it
+            $stmt = $pdo->prepare("
+                INSERT INTO guest_wallets (address, session_id, is_connected, created_at, updated_at) 
+                VALUES (?, ?, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (session_id) 
+                DO UPDATE SET 
+                    address = EXCLUDED.address,
+                    is_connected = TRUE,
+                    updated_at = CURRENT_TIMESTAMP
+            ");
+            $stmt->execute([$address, session_id()]);
+        }
         
         $message = 'Wallet address saved successfully.';
     }
