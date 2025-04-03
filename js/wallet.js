@@ -10,7 +10,18 @@ let web3Modal;
 let selectedAccount = null;
 
 // Initialize Web3Modal
-async function initWeb3Modal() {
+function initWeb3Modal() {
+    // Make sure required libraries are loaded
+    if (typeof Web3Modal === 'undefined') {
+        console.error("Web3Modal library not loaded");
+        return;
+    }
+    
+    if (typeof WalletConnectProvider === 'undefined') {
+        console.error("WalletConnectProvider library not loaded");
+        return;
+    }
+    
     // Define providers
     const providerOptions = {
         walletconnect: {
@@ -22,22 +33,28 @@ async function initWeb3Modal() {
         // Add more providers as needed
     };
 
-    // Initialize Web3Modal
-    web3Modal = new Web3Modal({
-        cacheProvider: true, // optional
-        providerOptions, // required
-        disableInjectedProvider: false, // optional. For MetaMask / Brave / Opera.
-        theme: {
-            background: "rgb(15, 23, 42)",
-            main: "rgb(255, 255, 255)",
-            secondary: "rgb(148, 163, 184)",
-            border: "rgba(59, 130, 246, 0.3)",
-            hover: "rgb(30, 41, 59)"
-        }
-    });
-
-    // Check if user was previously connected
-    checkConnection();
+    try {
+        // Initialize Web3Modal
+        web3Modal = new Web3Modal({
+            cacheProvider: true, // optional
+            providerOptions, // required
+            disableInjectedProvider: false, // optional. For MetaMask / Brave / Opera.
+            theme: {
+                background: "rgb(15, 23, 42)",
+                main: "rgb(255, 255, 255)",
+                secondary: "rgb(148, 163, 184)",
+                border: "rgba(59, 130, 246, 0.3)",
+                hover: "rgb(30, 41, 59)"
+            }
+        });
+        
+        console.log("Web3Modal initialized successfully");
+        
+        // Check if user was previously connected
+        checkConnection();
+    } catch (error) {
+        console.error("Failed to initialize Web3Modal:", error);
+    }
 }
 
 // Connect to wallet

@@ -27,6 +27,7 @@ function truncateAddress($address) {
                 <a href="campaigns.php" class="text-gray-300 hover:text-white transition">Campaigns</a>
                 <a href="#" class="text-gray-300 hover:text-white transition">How It Works</a>
                 <a href="#" class="text-gray-300 hover:text-white transition">About</a>
+                <a href="admin/index.php" class="text-gray-300 hover:text-white transition"><i class="fas fa-user-shield mr-1"></i>Admin</a>
             </nav>
             
             <!-- Wallet Connection -->
@@ -83,6 +84,7 @@ function truncateAddress($address) {
             <a href="campaigns.php" class="text-gray-300 hover:text-white transition py-2">Campaigns</a>
             <a href="#" class="text-gray-300 hover:text-white transition py-2">How It Works</a>
             <a href="#" class="text-gray-300 hover:text-white transition py-2">About</a>
+            <a href="admin/index.php" class="text-gray-300 hover:text-white transition py-2"><i class="fas fa-user-shield mr-1"></i>Admin</a>
         </nav>
     </div>
 </div>
