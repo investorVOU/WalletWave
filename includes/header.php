@@ -30,7 +30,7 @@ function truncateAddress($address) {
                 <div class="bg-gray-800/50 rounded-full backdrop-blur-sm p-1 flex space-x-1 border border-gray-700/30">
                     <a href="index.php" class="px-4 py-2 rounded-full text-white hover:bg-gray-700 transition">Home</a>
                     <a href="campaigns.php" class="px-4 py-2 rounded-full text-white hover:bg-gray-700 transition">Explore</a>
-                    <a href="#" class="px-4 py-2 rounded-full text-white hover:bg-gray-700 transition">Create</a>
+                    <a href="create-campaign.php" class="px-4 py-2 rounded-full text-white hover:bg-gray-700 transition">Create</a>
                     <a href="#" class="px-4 py-2 rounded-full text-white hover:bg-gray-700 transition">About</a>
                 </div>
                 <a href="admin/index.php" class="ml-4 px-4 py-2 text-white hover:text-indigo-300 transition flex items-center gap-2">
@@ -142,7 +142,7 @@ function truncateAddress($address) {
                 </svg>
                 Explore
             </a>
-            <a href="#" class="text-white hover:bg-gray-800 px-4 py-3 rounded-lg transition flex items-center gap-3">
+            <a href="create-campaign.php" class="text-white hover:bg-gray-800 px-4 py-3 rounded-lg transition flex items-center gap-3">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-indigo-400">
                     <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
                 </svg>

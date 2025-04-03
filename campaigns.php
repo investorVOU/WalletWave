@@ -76,9 +76,9 @@ try {
                     </div>
                     <h3 class="text-xl font-medium text-white mb-2">No Campaigns Found</h3>
                     <p class="text-gray-400 mb-6">There are no approved campaigns available at the moment.</p>
-                    <button id="connectWalletBtn" class="connect-wallet-btn px-8 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-lg transition duration-300 flex items-center justify-center gap-2 mx-auto">
+                    <a href="create-campaign.php" class="px-8 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-lg transition duration-300 flex items-center justify-center gap-2 mx-auto">
                         <i class="fas fa-plus-circle"></i> Create Campaign
-                    </button>
+                    </a>
                 </div>
             <?php else: ?>
                 <?php foreach ($campaigns as $campaign): ?>
@@ -119,7 +119,7 @@ try {
                                 <i class="far fa-clock mr-1"></i> 
                                 <?php echo $campaign['days_left']; ?> days left
                             </span>
-                            <a href="#" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:from-purple-700 hover:to-blue-700 transition">Fund Now</a>
+                            <a href="stake.php?id=<?php echo $campaign['id']; ?>" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:from-purple-700 hover:to-blue-700 transition">Fund Now</a>
                         </div>
                     </div>
                 </div>
@@ -152,9 +152,9 @@ try {
                 <div class="w-full md:w-2/3">
                     <h2 class="text-3xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-500">Start Your Own Blockchain Project</h2>
                     <p class="text-gray-300 mb-6">Have an innovative idea that needs funding? Connect your wallet and create a campaign to reach potential supporters in the blockchain community.</p>
-                    <button id="connectWalletBtnCampaign" class="connect-wallet-btn px-8 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-lg transition duration-300 flex items-center justify-center gap-2">
+                    <a href="create-campaign.php" class="px-8 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-lg transition duration-300 flex items-center justify-center gap-2">
                         <i class="fas fa-rocket"></i> Create Campaign
-                    </button>
+                    </a>
                 </div>
                 <div class="w-full md:w-1/3">
                     <img src="https://images.unsplash.com/photo-1516381548400-349d680edb56" alt="Create Campaign" class="rounded-lg shadow-xl">
