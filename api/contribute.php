@@ -88,8 +88,19 @@ try {
             exit;
         }
         
+        // Use custom staking period if provided, otherwise use the campaign default
+        $stakeDurationDays = isset($data['staking_period']) ? intval($data['staking_period']) : intval($campaign['staking_duration_days']);
+        
+        // Validate staking period
+        if ($stakeDurationDays < 30 || $stakeDurationDays > 365) {
+            echo json_encode([
+                'success' => false, 
+                'message' => 'Staking period must be between 30 and 365 days'
+            ]);
+            exit;
+        }
+        
         // Calculate stake end date
-        $stakeDurationDays = intval($campaign['staking_duration_days']);
         $endDate = date('Y-m-d H:i:s', strtotime("+{$stakeDurationDays} days"));
         
         // Insert stake
@@ -112,6 +123,7 @@ try {
             'message' => 'Stake successful', 
             'contribution_id' => $contributionId,
             'stake_id' => $pdo->lastInsertId(),
+            'staking_period' => $stakeDurationDays,
             'end_date' => $endDate
         ]);
     } else {

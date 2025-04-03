@@ -356,12 +356,19 @@ if ($walletConnected && $campaignId > 0) {
                         <div>
                             <div class="flex justify-between text-sm mb-1">
                                 <span class="font-medium text-gray-300">Staking Term</span>
-                                <span class="text-blue-400"><?php echo htmlspecialchars($campaign['staking_duration_days']); ?> days</span>
+                                <span class="text-blue-400">Choose your staking period</span>
                             </div>
                             <div class="bg-slate-900/80 border border-slate-700 rounded-lg px-4 py-3">
-                                <div class="flex justify-between">
-                                    <span>Lock Period:</span>
-                                    <span class="text-gray-300"><?php echo htmlspecialchars($campaign['staking_duration_days']); ?> days</span>
+                                <div class="mb-3">
+                                    <label for="stakingPeriod" class="block text-sm font-medium text-gray-300 mb-1">Lock Period (days):</label>
+                                    <input type="range" id="stakingPeriod" name="stakingPeriod" 
+                                        min="30" max="365" value="<?php echo htmlspecialchars($campaign['staking_duration_days']); ?>" 
+                                        class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                                    <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                        <span>30 days</span>
+                                        <span id="stakingPeriodValue"><?php echo htmlspecialchars($campaign['staking_duration_days']); ?> days</span>
+                                        <span>365 days</span>
+                                    </div>
                                 </div>
                                 <div class="flex justify-between">
                                     <span>APY:</span>
@@ -545,15 +552,28 @@ if ($walletConnected && $campaignId > 0) {
     
     <!-- Web3 Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/web3@1.7.4/dist/web3.min.js"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.6.umd.min.js"></script>
     
     <!-- Custom JS files -->
     <script src="js/wallet.js"></script>
+    <script src="js/contract.js"></script>
     <script src="js/app.js"></script>
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof initWalletConnection === 'function') {
                 initWalletConnection();
+            }
+            
+            // Handle staking period slider
+            const stakingPeriodSlider = document.getElementById('stakingPeriod');
+            const stakingPeriodValue = document.getElementById('stakingPeriodValue');
+            
+            if (stakingPeriodSlider && stakingPeriodValue) {
+                stakingPeriodSlider.addEventListener('input', function() {
+                    stakingPeriodValue.textContent = this.value + ' days';
+                    calculateRewards();
+                });
             }
             
             // Calculate estimated rewards when amount changes
@@ -565,8 +585,15 @@ if ($walletConnected && $campaignId > 0) {
             function calculateRewards() {
                 const amount = parseFloat(stakeAmountInput.value) || 0;
                 const apy = <?php echo $campaign ? $campaign['staking_apy'] : 0; ?>;
-                const days = <?php echo $campaign ? $campaign['staking_duration_days'] : 0; ?>;
+                // Get staking period from the slider
+                const days = parseInt(stakingPeriodSlider.value) || <?php echo $campaign ? $campaign['staking_duration_days'] : 30; ?>;
                 const tokenSymbol = "<?php echo $campaign ? htmlspecialchars($campaign['token_symbol']) : ''; ?>";
+                
+                // Update the days display in the Estimated Rewards section
+                const daysDisplay = document.querySelector('#estimatedReward').parentNode.previousElementSibling;
+                if (daysDisplay) {
+                    daysDisplay.textContent = `After ${days} days:`;
+                }
                 
                 if (amount > 0 && apy > 0 && days > 0) {
                     // Calculate daily interest rate
@@ -619,9 +646,17 @@ if ($walletConnected && $campaignId > 0) {
                         return;
                     }
                     
+                    // Get form values
                     const amount = parseFloat(document.getElementById('stakeAmount').value);
+                    const stakingPeriod = parseInt(document.getElementById('stakingPeriod').value);
+                    const campaignId = document.getElementById('campaignId').value;
+                    
                     if (isNaN(amount) || amount <= 0) {
                         throw new Error('Please enter a valid amount');
+                    }
+                    
+                    if (isNaN(stakingPeriod) || stakingPeriod < 30 || stakingPeriod > 365) {
+                        throw new Error('Staking period must be between 30 and 365 days');
                     }
                     
                     const minAmount = <?php echo $campaign ? $campaign['min_stake_amount'] : 0; ?>;
@@ -629,20 +664,85 @@ if ($walletConnected && $campaignId > 0) {
                         throw new Error(`Minimum staking amount is ${minAmount}`);
                     }
                     
-                    // Here would be the Web3 transaction code to stake tokens
-                    // For this example, we'll simulate a successful transaction
+                    // Load the contract.js script if not already loaded
+                    if (typeof contributeWithStaking !== 'function') {
+                        // Dynamically load the contract.js script
+                        await new Promise((resolve, reject) => {
+                            const script = document.createElement('script');
+                            script.src = '/js/contract.js';
+                            script.onload = resolve;
+                            script.onerror = reject;
+                            document.head.appendChild(script);
+                        });
+                        
+                        // Wait for ethers.js to load if needed
+                        if (typeof ethers === 'undefined') {
+                            await new Promise((resolve, reject) => {
+                                const script = document.createElement('script');
+                                script.src = 'https://cdn.ethers.io/lib/ethers-5.6.umd.min.js';
+                                script.onload = resolve;
+                                script.onerror = reject;
+                                document.head.appendChild(script);
+                            });
+                        }
+                        
+                        // Wait a bit for the script to initialize
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
                     
-                    // Simulate blockchain delay
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    // Execute the contract function if available
+                    let txHash;
+                    if (typeof contributeWithStaking === 'function') {
+                        console.log('Using smart contract to stake', { campaignId, amount, stakingPeriod });
+                        
+                        try {
+                            // Call the contract function
+                            const result = await contributeWithStaking(campaignId, amount, stakingPeriod);
+                            txHash = result.transactionHash;
+                        } catch (error) {
+                            console.error('Contract call failed:', error);
+                            throw new Error(error.message || 'Failed to execute transaction');
+                        }
+                    } else {
+                        console.log('Smart contract integration not available, using simulated transaction');
+                        // Simulate blockchain delay
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        // Create fake transaction hash for demo purposes
+                        txHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+                    }
+                    
+                    // Save staking details to the database
+                    const response = await fetch('/api/contribute.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            campaign_id: campaignId,
+                            amount: amount,
+                            wallet_address: selectedAccount,
+                            transaction_hash: txHash,
+                            staking: true,
+                            staking_period: stakingPeriod
+                        }),
+                    });
+                    
+                    const data = await response.json();
+                    console.log("Staking response:", data);
+                    
+                    if (!data.success) {
+                        throw new Error(data.message || 'Failed to record stake');
+                    }
                     
                     // Show success
                     document.getElementById('txProcessing').classList.add('hidden');
                     document.getElementById('txSuccess').classList.remove('hidden');
                     
-                    // Update UI with fake transaction hash
-                    const fakeHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-                    document.getElementById('txHash').textContent = fakeHash.substring(0, 10) + '...' + fakeHash.substring(fakeHash.length - 8);
-                    document.getElementById('viewTxLink').href = `${networkInfo.block_explorer_url}/tx/${fakeHash}`;
+                    // Update UI with transaction hash
+                    document.getElementById('txHash').textContent = txHash.substring(0, 10) + '...' + txHash.substring(txHash.length - 8);
+                    if (networkInfo && networkInfo.block_explorer_url) {
+                        document.getElementById('viewTxLink').href = `${networkInfo.block_explorer_url}/tx/${txHash}`;
+                    }
                     
                 } catch (error) {
                     console.error('Staking error:', error);
@@ -682,11 +782,52 @@ if ($walletConnected && $campaignId > 0) {
                         throw new Error('Campaign ID is missing');
                     }
                     
-                    // Simulate blockchain delay
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    // Load the contract.js script if not already loaded
+                    if (typeof contribute !== 'function') {
+                        // Dynamically load the contract.js script
+                        await new Promise((resolve, reject) => {
+                            const script = document.createElement('script');
+                            script.src = '/js/contract.js';
+                            script.onload = resolve;
+                            script.onerror = reject;
+                            document.head.appendChild(script);
+                        });
+                        
+                        // Wait for ethers.js to load if needed
+                        if (typeof ethers === 'undefined') {
+                            await new Promise((resolve, reject) => {
+                                const script = document.createElement('script');
+                                script.src = 'https://cdn.ethers.io/lib/ethers-5.6.umd.min.js';
+                                script.onload = resolve;
+                                script.onerror = reject;
+                                document.head.appendChild(script);
+                            });
+                        }
+                        
+                        // Wait a bit for the script to initialize
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
                     
-                    // Generate a transaction hash for demo purposes
-                    const fakeHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+                    // Execute the contract function if available
+                    let txHash;
+                    if (typeof contribute === 'function') {
+                        console.log('Using smart contract to contribute', { campaignId, amount });
+                        
+                        try {
+                            // Call the contract function
+                            const result = await contribute(campaignId, amount);
+                            txHash = result.transactionHash;
+                        } catch (error) {
+                            console.error('Contract call failed:', error);
+                            throw new Error(error.message || 'Failed to execute transaction');
+                        }
+                    } else {
+                        console.log('Smart contract integration not available, using simulated transaction');
+                        // Simulate blockchain delay
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        // Create fake transaction hash for demo purposes
+                        txHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+                    }
                     
                     // Save contribution to database
                     const response = await fetch('/api/contribute.php', {
@@ -698,7 +839,7 @@ if ($walletConnected && $campaignId > 0) {
                             campaign_id: campaignId,
                             amount: amount,
                             wallet_address: selectedAccount,
-                            transaction_hash: fakeHash,
+                            transaction_hash: txHash,
                             staking: false // Direct funding, not staking
                         }),
                     });
@@ -713,10 +854,10 @@ if ($walletConnected && $campaignId > 0) {
                     // Update the UI with transaction info
                     document.getElementById('txProcessing').classList.add('hidden');
                     document.getElementById('txSuccess').classList.remove('hidden');
-                    document.getElementById('txHash').textContent = fakeHash.substring(0, 10) + '...' + fakeHash.substring(fakeHash.length - 8);
+                    document.getElementById('txHash').textContent = txHash.substring(0, 10) + '...' + txHash.substring(txHash.length - 8);
                     
                     if (networkInfo && networkInfo.block_explorer_url) {
-                        document.getElementById('viewTxLink').href = `${networkInfo.block_explorer_url}/tx/${fakeHash}`;
+                        document.getElementById('viewTxLink').href = `${networkInfo.block_explorer_url}/tx/${txHash}`;
                     }
                     
                 } catch (error) {

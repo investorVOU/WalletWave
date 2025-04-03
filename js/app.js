@@ -106,11 +106,16 @@ async function handleStaking() {
         // Get form data
         const campaignId = document.getElementById('campaignId').value;
         const amount = parseFloat(document.getElementById('stakeAmount').value);
+        const stakingPeriod = parseInt(document.getElementById('stakingPeriod').value || '30');
         const chainId = parseInt(document.getElementById('chainId').value);
         const tokenSymbol = document.getElementById('tokenSymbol').value;
         
         if (!campaignId || isNaN(amount) || amount <= 0) {
             throw new Error('Please enter a valid amount');
+        }
+        
+        if (isNaN(stakingPeriod) || stakingPeriod < 30 || stakingPeriod > 365) {
+            throw new Error('Staking period must be between 30 and 365 days');
         }
         
         // Check if on correct network
@@ -123,17 +128,19 @@ async function handleStaking() {
             return;
         }
         
-        // This would be the actual transaction code in a real implementation
-        // For demo purposes, we'll simulate a transaction
-        console.log('Simulating blockchain transaction for staking...');
+        // Initialize contract if needed
+        if (!cryptoFundContract) {
+            if (!(await initializeContract())) {
+                throw new Error('Failed to initialize contract');
+            }
+        }
         
-        // Generate a fake transaction hash
-        const transactionHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+        console.log('Sending stake transaction...');
         
-        // Wait for "blockchain confirmation"
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Call the contract function
+        const result = await contributeWithStaking(campaignId, amount, stakingPeriod);
         
-        // Save contribution to database
+        // Save transaction details to database
         const response = await fetch('/api/contribute.php', {
             method: 'POST',
             headers: {
@@ -143,8 +150,9 @@ async function handleStaking() {
                 campaign_id: campaignId,
                 amount: amount,
                 wallet_address: selectedAccount,
-                transaction_hash: transactionHash,
-                staking: true
+                transaction_hash: result.transactionHash,
+                staking: true,
+                staking_period: stakingPeriod
             }),
         });
         
@@ -155,9 +163,9 @@ async function handleStaking() {
         }
         
         // Update UI with transaction info
-        document.getElementById('txHash').textContent = transactionHash.substring(0, 10) + '...' + transactionHash.substring(transactionHash.length - 8);
+        document.getElementById('txHash').textContent = result.transactionHash.substring(0, 10) + '...' + result.transactionHash.substring(result.transactionHash.length - 8);
         const blockExplorerUrl = NETWORKS[chainId] ? NETWORKS[chainId].blockExplorerUrl : 'https://etherscan.io';
-        document.getElementById('viewTxLink').href = `${blockExplorerUrl}/tx/${transactionHash}`;
+        document.getElementById('viewTxLink').href = `${blockExplorerUrl}/tx/${result.transactionHash}`;
         
         // Show success state
         txProcessing.classList.add('hidden');
@@ -219,17 +227,19 @@ async function handleFunding() {
             return;
         }
         
-        // This would be the actual transaction code in a real implementation
-        // For demo purposes, we'll simulate a transaction
-        console.log('Simulating blockchain transaction for funding...');
+        // Initialize contract if needed
+        if (!cryptoFundContract) {
+            if (!(await initializeContract())) {
+                throw new Error('Failed to initialize contract');
+            }
+        }
         
-        // Generate a fake transaction hash
-        const transactionHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+        console.log('Sending contribution transaction...');
         
-        // Wait for "blockchain confirmation"
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Call the contract function
+        const result = await contribute(campaignId, amount);
         
-        // Save contribution to database
+        // Save transaction details to database
         const response = await fetch('/api/contribute.php', {
             method: 'POST',
             headers: {
@@ -239,7 +249,7 @@ async function handleFunding() {
                 campaign_id: campaignId,
                 amount: amount,
                 wallet_address: selectedAccount,
-                transaction_hash: transactionHash,
+                transaction_hash: result.transactionHash,
                 staking: false
             }),
         });
@@ -251,9 +261,9 @@ async function handleFunding() {
         }
         
         // Update UI with transaction info
-        document.getElementById('txHash').textContent = transactionHash.substring(0, 10) + '...' + transactionHash.substring(transactionHash.length - 8);
+        document.getElementById('txHash').textContent = result.transactionHash.substring(0, 10) + '...' + result.transactionHash.substring(result.transactionHash.length - 8);
         const blockExplorerUrl = NETWORKS[chainId] ? NETWORKS[chainId].blockExplorerUrl : 'https://etherscan.io';
-        document.getElementById('viewTxLink').href = `${blockExplorerUrl}/tx/${transactionHash}`;
+        document.getElementById('viewTxLink').href = `${blockExplorerUrl}/tx/${result.transactionHash}`;
         
         // Show success state
         txProcessing.classList.add('hidden');
