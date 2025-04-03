@@ -32,7 +32,7 @@ if ($campaignId > 0) {
                                n.rpc_url, n.chain_id, n.block_explorer_url, n.native_currency_symbol, 
                                n.native_currency_decimals
                                FROM campaigns c
-                               LEFT JOIN blockchain_networks n ON c.blockchain_network = n.chain_id
+                               LEFT JOIN blockchain_networks n ON c.blockchain_network::integer = n.chain_id
                                WHERE c.id = ? AND c.status = 'approved'");
         $stmt->execute([$campaignId]);
         $campaign = $stmt->fetch(PDO::FETCH_ASSOC);
