@@ -300,9 +300,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $walletConnected) {
                     <!-- Min Stake Amount -->
                     <div>
                         <label for="min_stake_amount" class="block text-sm font-medium text-gray-300 mb-1">Min Stake Amount</label>
-                        <input type="number" id="min_stake_amount" name="min_stake_amount" min="0" step="0.001"
+                        <input type="number" id="min_stake_amount" name="min_stake_amount" min="0" step="0.000001"
                             class="w-full bg-slate-900/80 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors"
-                            placeholder="Minimum stake" value="0.1">
+                            placeholder="Minimum stake" value="0.00005">
                     </div>
                     
                     <!-- Staking Duration -->
