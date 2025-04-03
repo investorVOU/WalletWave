@@ -275,8 +275,8 @@ include_once 'includes/db.php';
 
     <!-- Web3 Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/web3@1.7.4/dist/web3.min.js"></script>
-    <script src="https://unpkg.com/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
     <script src="https://unpkg.com/web3modal@1.9.9/dist/index.js"></script>
+    <script src="https://unpkg.com/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
     
     <!-- Custom JS -->
     <script src="js/wallet.js"></script>

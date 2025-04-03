@@ -5,31 +5,8 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     // DOM References
-    const connectWalletBtns = document.querySelectorAll('.connect-wallet-btn');
     const walletDropdownToggle = document.getElementById('walletDropdownToggle');
     const walletDropdownMenu = document.getElementById('walletDropdownMenu');
-    const disconnectWalletBtn = document.getElementById('disconnectWalletBtn');
-    const closeModalBtn = document.getElementById('closeModalBtn');
-    const continueBtn = document.getElementById('continueBtn');
-    const retryBtn = document.getElementById('retryBtn');
-    const closeErrorBtn = document.getElementById('closeErrorBtn');
-    const copyAddressBtn = document.getElementById('copyAddressBtn');
-    const walletModalOverlay = document.getElementById('walletModalOverlay');
-    
-    // Connect wallet buttons
-    connectWalletBtns.forEach(btn => {
-        btn.addEventListener('click', async function() {
-            // Only connect if not already connected
-            if (!btn.classList.contains('connected')) {
-                await connectWallet();
-            } else {
-                // If already connected, show the dropdown
-                if (walletDropdownToggle) {
-                    walletDropdownToggle.click();
-                }
-            }
-        });
-    });
     
     // Wallet dropdown toggle (if exists)
     if (walletDropdownToggle) {
@@ -42,58 +19,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!walletDropdownToggle.contains(event.target) && !walletDropdownMenu.contains(event.target)) {
                 walletDropdownMenu.classList.add('hidden');
             }
-        });
-    }
-    
-    // Disconnect wallet button
-    if (disconnectWalletBtn) {
-        disconnectWalletBtn.addEventListener('click', async function() {
-            await disconnectWallet();
-        });
-    }
-    
-    // Modal close button
-    if (closeModalBtn) {
-        closeModalBtn.addEventListener('click', function() {
-            hideConnectionModal();
-        });
-    }
-    
-    // Modal overlay click
-    if (walletModalOverlay) {
-        walletModalOverlay.addEventListener('click', function() {
-            hideConnectionModal();
-        });
-    }
-    
-    // Continue button in success state
-    if (continueBtn) {
-        continueBtn.addEventListener('click', function() {
-            hideConnectionModal();
-        });
-    }
-    
-    // Retry button in error state
-    if (retryBtn) {
-        retryBtn.addEventListener('click', async function() {
-            hideConnectionModal();
-            setTimeout(async () => {
-                await connectWallet();
-            }, 500);
-        });
-    }
-    
-    // Close error button
-    if (closeErrorBtn) {
-        closeErrorBtn.addEventListener('click', function() {
-            hideConnectionModal();
-        });
-    }
-    
-    // Copy address button
-    if (copyAddressBtn) {
-        copyAddressBtn.addEventListener('click', function() {
-            copyAddressToClipboard();
         });
     }
     

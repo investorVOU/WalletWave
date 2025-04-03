@@ -163,11 +163,61 @@ try {
         </div>
     </main>
     
+    <!-- Wallet Connection Modal -->
+    <div id="walletConnectionStatus" class="fixed inset-0 flex items-center justify-center z-50 hidden">
+        <div class="absolute inset-0 bg-black bg-opacity-75 backdrop-blur-sm" id="walletModalOverlay"></div>
+        <div class="bg-slate-900 p-8 rounded-2xl shadow-2xl relative z-10 w-full max-w-md mx-4 border border-blue-500/30">
+            <div id="connectionLoading" class="text-center py-6">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                <h3 class="text-xl font-semibold mb-2">Connecting Wallet</h3>
+                <p class="text-gray-400">Please confirm the connection in your wallet...</p>
+            </div>
+            
+            <div id="connectionSuccess" class="text-center py-6 hidden">
+                <div class="bg-green-500/20 text-green-400 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-check text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">Wallet Connected!</h3>
+                <p class="text-gray-400 mb-4">Your wallet has been successfully connected.</p>
+                <div class="bg-slate-800 p-4 rounded-lg flex items-center justify-between mb-6">
+                    <span id="connectedAddress" class="text-blue-400 font-mono">0x1234...5678</span>
+                    <button id="copyAddressBtn" class="text-gray-400 hover:text-white">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <button id="continueBtn" class="w-full py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-lg transition duration-300">
+                    Continue
+                </button>
+            </div>
+            
+            <div id="connectionError" class="text-center py-6 hidden">
+                <div class="bg-red-500/20 text-red-400 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-times text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">Connection Failed</h3>
+                <p id="errorMessage" class="text-gray-400 mb-6">Unable to connect to your wallet. Please try again.</p>
+                <button id="retryBtn" class="w-full py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-lg transition duration-300">
+                    Try Again
+                </button>
+                <button id="closeErrorBtn" class="w-full py-3 mt-3 rounded-lg bg-transparent border border-gray-600 text-gray-300 hover:bg-gray-800 font-semibold transition duration-300">
+                    Cancel
+                </button>
+            </div>
+            
+            <button id="closeModalBtn" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    
     <?php include_once 'includes/footer.php'; ?>
     
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50"></div>
+    
     <!-- Web3 Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.7.3/dist/web3.min.js"></script>
-    <script src="https://unpkg.com/web3modal@1.9.8/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.7.4/dist/web3.min.js"></script>
+    <script src="https://unpkg.com/web3modal@1.9.9/dist/index.js"></script>
     <script src="https://unpkg.com/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
     
     <!-- Custom JS -->
