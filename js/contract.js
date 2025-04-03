@@ -43,23 +43,32 @@ async function loadContractData() {
 
 // Initialize contract
 async function initializeContract() {
+    // Add a guard to prevent recursive initialization
+    if (window._isInitializingContract) {
+        console.warn('Contract initialization already in progress, skipping duplicate call');
+        return false;
+    }
+    
+    window._isInitializingContract = true;
     console.log('Initializing contract with web3 provider...');
     
-    // Check if Web3 is available
-    if (!window.ethereum) {
-        console.error('Web3 provider not available. Please install MetaMask or a compatible wallet.');
-        showToast('Please install MetaMask or a compatible wallet to use all features.', 'error');
-        return false;
-    }
-    
-    // Check if connected
-    if (!window.ethereum.isConnected()) {
-        console.error('Web3 provider is not connected');
-        showToast('Your wallet is not connected. Please connect your wallet to continue.', 'error');
-        return false;
-    }
-    
     try {
+        // Check if Web3 is available
+        if (!window.ethereum) {
+            console.error('Web3 provider not available. Please install MetaMask or a compatible wallet.');
+            showToast('Please install MetaMask or a compatible wallet to use all features.', 'error');
+            window._isInitializingContract = false;
+            return false;
+        }
+        
+        // Check if connected
+        if (!window.ethereum.isConnected()) {
+            console.error('Web3 provider is not connected');
+            showToast('Your wallet is not connected. Please connect your wallet to continue.', 'error');
+            window._isInitializingContract = false;
+            return false;
+        }
+        
         // Get the contract data
         console.log('Loading contract data from JSON file...');
         const contractData = await loadContractData();
@@ -74,6 +83,7 @@ async function initializeContract() {
         
         if (!contractData) {
             console.error('Failed to load contract data, aborting initialization');
+            window._isInitializingContract = false;
             return false;
         }
         
@@ -87,6 +97,9 @@ async function initializeContract() {
         // Check if contract is available on the current network
         const currentNetworkId = network.chainId;
         
+        // Store the current chain ID in the window global for easy access
+        window.currentChainId = currentNetworkId;
+        
         // First check if we have a contract address for this network
         if (contractData.contractPerNetwork && contractData.contractPerNetwork[currentNetworkId]) {
             console.log(`Contract found on current network: ${contractData.contractPerNetwork[currentNetworkId].networkName} (chainId: ${currentNetworkId})`);
@@ -95,118 +108,46 @@ async function initializeContract() {
         } else if (contractData.networkId && network.chainId !== contractData.networkId) {
             console.warn(`Contract is not available on current network chainId: ${network.chainId}, need to switch to ${contractData.networkName} (chainId: ${contractData.networkId})`);
             
-            // Prompt user to switch networks
-            try {
-                // Log the network we're trying to switch to
-                const targetChainIdHex = '0x' + contractData.networkId.toString(16);
-                console.log('Attempting to switch to network:', {
-                    networkId: contractData.networkId,
-                    networkName: contractData.networkName,
-                    chainIdHex: targetChainIdHex
-                });
+            // Remember the target network for future use
+            window._targetNetworkId = contractData.networkId;
+            window._targetNetworkName = contractData.networkName;
+            
+            // Display message to user
+            showToast(`Please switch to ${contractData.networkName} to interact with this contract. Use the network switcher in your wallet or click the network switch button.`, 'info');
+            
+            // Add a small UI button to switch networks if not already present
+            const switchBtn = document.getElementById('js-network-switch-btn');
+            if (!switchBtn) {
+                const btnContainer = document.createElement('div');
+                btnContainer.className = 'fixed bottom-24 right-4 z-40';
+                btnContainer.innerHTML = `
+                    <button id="js-network-switch-btn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-lg transition-all flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                        </svg>
+                        Switch to ${contractData.networkName}
+                    </button>
+                `;
+                document.body.appendChild(btnContainer);
                 
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: targetChainIdHex }], // Convert to hex
-                });
-                
-                console.log('Network switch request sent successfully');
-                // Wait for the network to switch and reload the page
-                return false;
-            } catch (switchError) {
-                // This error code indicates that the chain has not been added to MetaMask
-                if (switchError.code === 4902) {
+                // Add event listener to the button
+                document.getElementById('js-network-switch-btn').addEventListener('click', async () => {
                     try {
-                        // If chain is not available, add it to the wallet
-                        let networkParams = {};
-                        
-                        // Dynamically set network parameters based on chain ID
-                        switch (contractData.networkId) {
-                            case 11155111: // Sepolia
-                                networkParams = {
-                                    chainId: '0x' + contractData.networkId.toString(16),
-                                    chainName: 'Sepolia Testnet',
-                                    nativeCurrency: {
-                                        name: 'Sepolia ETH',
-                                        symbol: 'SepoliaETH',
-                                        decimals: 18
-                                    },
-                                    rpcUrls: ['https://rpc.sepolia.org', 'https://sepolia.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'],
-                                    blockExplorerUrls: ['https://sepolia.etherscan.io/']
-                                };
-                                break;
-                            case 5: // Goerli
-                                networkParams = {
-                                    chainId: '0x' + contractData.networkId.toString(16),
-                                    chainName: 'Goerli Testnet',
-                                    nativeCurrency: {
-                                        name: 'Goerli ETH',
-                                        symbol: 'GoerliETH',
-                                        decimals: 18
-                                    },
-                                    rpcUrls: ['https://goerli.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'],
-                                    blockExplorerUrls: ['https://goerli.etherscan.io/']
-                                };
-                                break;
-                            case 80001: // Mumbai
-                                networkParams = {
-                                    chainId: '0x' + contractData.networkId.toString(16),
-                                    chainName: 'Mumbai Testnet',
-                                    nativeCurrency: {
-                                        name: 'Testnet MATIC',
-                                        symbol: 'tMATIC',
-                                        decimals: 18
-                                    },
-                                    rpcUrls: ['https://rpc-mumbai.maticvigil.com'],
-                                    blockExplorerUrls: ['https://mumbai.polygonscan.com/']
-                                };
-                                break;
-                            default:
-                                // Default parameters (using whatever data we have)
-                                networkParams = {
-                                    chainId: '0x' + contractData.networkId.toString(16),
-                                    chainName: contractData.networkName,
-                                    nativeCurrency: {
-                                        name: 'ETH',
-                                        symbol: 'ETH',
-                                        decimals: 18
-                                    },
-                                    rpcUrls: ['https://rpc.sepolia.org', 'https://sepolia.infura.io/v3/27e484dcd9e3efcfd25a83a78777cdf1'], // Multiple Sepolia endpoints
-                                    blockExplorerUrls: ['https://sepolia.etherscan.io/']
-                                };
+                        if (window.switchNetwork && window._targetNetworkId) {
+                            await window.switchNetwork(window._targetNetworkId);
+                            setTimeout(async () => {
+                                window._isInitializingContract = false;
+                                await initializeContract();
+                            }, 1000);
                         }
-                        
-                        console.log('Adding network to wallet:', networkParams);
-                        
-                        await window.ethereum.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [networkParams],
-                        });
-                        
-                        console.log('Network add request sent successfully');
-                        
-                        return false;
-                    } catch (addError) {
-                        console.error('Error adding Ethereum chain:', addError);
-                        console.log('Error details:', {
-                            message: addError.message,
-                            code: addError.code,
-                            data: addError.data
-                        });
-                        showToast('Network switch failed. Please manually switch to ' + contractData.networkName + ' in your wallet to interact with our contract.', 'error');
-                        return false;
+                    } catch (error) {
+                        console.error('Error switching network from button:', error);
                     }
-                } else {
-                    console.error('Error switching network:', switchError);
-                    console.log('Switch error details:', {
-                        message: switchError.message,
-                        code: switchError.code,
-                        data: switchError.data
-                    });
-                    showToast('Network switch failed. Please manually switch to ' + contractData.networkName + ' in your wallet to interact with our contract.', 'error');
-                    return false;
-                }
+                });
             }
+            
+            window._isInitializingContract = false;
+            return false;
         }
         
         // Get the signer (account)
@@ -232,6 +173,7 @@ async function initializeContract() {
             showToast(`You are connected to ${contractData.networkName}. Use test tokens for transactions.`, 'info');
         }
         
+        window._isInitializingContract = false;
         return true;
     } catch (error) {
         console.error('Error initializing contract:', error);
@@ -242,6 +184,7 @@ async function initializeContract() {
             data: error.data
         });
         showToast('Error initializing contract. Check console for details.', 'error');
+        window._isInitializingContract = false;
         return false;
     }
 }
@@ -291,29 +234,42 @@ async function createCampaign(title, description, goal, durationInDays) {
 
 // Contribute to campaign (no staking)
 async function contribute(campaignId, amount) {
-    if (!cryptoFundContract) {
-        if (!(await initializeContract())) {
-            throw new Error('Contract not initialized');
-        }
-    }
-    
     try {
-        // Get campaign chain ID from hidden input
+        // First check if contract is initialized or needs to be initialized
+        if (!cryptoFundContract) {
+            // Initialize contract but don't recursively call contribute again
+            const initialized = await initializeContract();
+            if (!initialized) {
+                showToast('Unable to initialize the contract. Please check your wallet connection.', 'error');
+                throw new Error('Contract not initialized');
+            }
+        }
+        
+        // Handle network switching if needed
         const chainIdElement = document.getElementById('chainId');
         if (chainIdElement && chainIdElement.value) {
             const requiredChainId = parseInt(chainIdElement.value);
             
-            // Check if we're on the correct network
+            // Check if we're on the correct network using window.currentChainId
             if (window.currentChainId !== requiredChainId) {
+                const networkNameElement = document.querySelector('[data-network-name]');
+                const networkName = networkNameElement ? networkNameElement.getAttribute('data-network-name') : 'required';
+                
+                showToast(`Switching to ${networkName} network...`, 'info');
                 try {
-                    const networkNameElement = document.querySelector('[data-network-name]');
-                    const networkName = networkNameElement ? networkNameElement.getAttribute('data-network-name') : 'required';
-                    
-                    showToast(`Switching to ${networkName} network...`, 'info');
+                    // Use window.switchNetwork which should be the global reference to the wallet.js function
                     await window.switchNetwork(requiredChainId);
                     
-                    // Re-initialize contract after network switch
-                    await initializeContract();
+                    // After network is switched, re-initialize contract
+                    const reInitialized = await initializeContract();
+                    if (!reInitialized) {
+                        showToast('Unable to connect to the new network. Please try manually switching networks.', 'error');
+                        throw new Error('Contract re-initialization failed after network switch');
+                    }
+                    
+                    // Add a delay to allow the network to stabilize before proceeding
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
                 } catch (switchError) {
                     console.error('Network switching error:', switchError);
                     showToast('Please switch networks manually and try again', 'error');
@@ -322,16 +278,26 @@ async function contribute(campaignId, amount) {
             }
         }
         
+        // Safety check: at this point contract should be initialized
+        if (!cryptoFundContract) {
+            showToast('Contract not properly initialized. Please refresh and try again.', 'error');
+            throw new Error('Contract not properly initialized after network switch');
+        }
+        
         // Convert amount to wei
         const amountInWei = ethers.utils.parseEther(amount.toString());
         
         // Send the transaction
+        console.log(`Sending contribution of ${amount} ETH to campaign ${campaignId}`);
         const tx = await cryptoFundContract.contribute(campaignId, {
             value: amountInWei
         });
         
+        showToast('Transaction submitted! Waiting for confirmation...', 'info');
+        
         // Wait for transaction to be mined
         const receipt = await tx.wait();
+        console.log('Transaction confirmed:', receipt);
         
         return {
             success: true,
@@ -339,35 +305,58 @@ async function contribute(campaignId, amount) {
         };
     } catch (error) {
         console.error('Error contributing to campaign:', error);
+        
+        // Better error handling for user
+        if (error.code === 'ACTION_REJECTED') {
+            showToast('Transaction was rejected. You denied the transaction request.', 'error');
+        } else if (error.message && error.message.includes('call stack size')) {
+            showToast('Error: Maximum call stack size exceeded. Please refresh the page and try again.', 'error');
+        } else {
+            showToast('Transaction failed: ' + (error.message || 'Unknown error'), 'error');
+        }
+        
         throw error;
     }
 }
 
 // Contribute with staking
 async function contributeWithStaking(campaignId, amount, stakingPeriodInDays) {
-    if (!cryptoFundContract) {
-        if (!(await initializeContract())) {
-            throw new Error('Contract not initialized');
-        }
-    }
-    
     try {
-        // Get campaign chain ID from hidden input
+        // First check if contract is initialized or needs to be initialized
+        if (!cryptoFundContract) {
+            // Initialize contract but don't recursively call stake again
+            const initialized = await initializeContract();
+            if (!initialized) {
+                showToast('Unable to initialize the contract. Please check your wallet connection.', 'error');
+                throw new Error('Contract not initialized');
+            }
+        }
+        
+        // Handle network switching if needed
         const chainIdElement = document.getElementById('chainId');
         if (chainIdElement && chainIdElement.value) {
             const requiredChainId = parseInt(chainIdElement.value);
             
-            // Check if we're on the correct network
+            // Check if we're on the correct network using window.currentChainId
             if (window.currentChainId !== requiredChainId) {
+                const networkNameElement = document.querySelector('[data-network-name]');
+                const networkName = networkNameElement ? networkNameElement.getAttribute('data-network-name') : 'required';
+                
+                showToast(`Switching to ${networkName} network...`, 'info');
                 try {
-                    const networkNameElement = document.querySelector('[data-network-name]');
-                    const networkName = networkNameElement ? networkNameElement.getAttribute('data-network-name') : 'required';
-                    
-                    showToast(`Switching to ${networkName} network...`, 'info');
+                    // Use window.switchNetwork which should be the global reference to the wallet.js function
                     await window.switchNetwork(requiredChainId);
                     
-                    // Re-initialize contract after network switch
-                    await initializeContract();
+                    // After network is switched, re-initialize contract
+                    const reInitialized = await initializeContract();
+                    if (!reInitialized) {
+                        showToast('Unable to connect to the new network. Please try manually switching networks.', 'error');
+                        throw new Error('Contract re-initialization failed after network switch');
+                    }
+                    
+                    // Add a delay to allow the network to stabilize before proceeding
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
                 } catch (switchError) {
                     console.error('Network switching error:', switchError);
                     showToast('Please switch networks manually and try again', 'error');
@@ -376,10 +365,17 @@ async function contributeWithStaking(campaignId, amount, stakingPeriodInDays) {
             }
         }
         
+        // Safety check: at this point contract should be initialized
+        if (!cryptoFundContract) {
+            showToast('Contract not properly initialized. Please refresh and try again.', 'error');
+            throw new Error('Contract not properly initialized after network switch');
+        }
+        
         // Convert amount to wei
         const amountInWei = ethers.utils.parseEther(amount.toString());
         
         // Send the transaction
+        console.log(`Sending staking contribution of ${amount} ETH to campaign ${campaignId} for ${stakingPeriodInDays} days`);
         const tx = await cryptoFundContract.contributeWithStaking(
             campaignId,
             stakingPeriodInDays,
@@ -388,8 +384,11 @@ async function contributeWithStaking(campaignId, amount, stakingPeriodInDays) {
             }
         );
         
+        showToast('Staking transaction submitted! Waiting for confirmation...', 'info');
+        
         // Wait for transaction to be mined
         const receipt = await tx.wait();
+        console.log('Staking transaction confirmed:', receipt);
         
         return {
             success: true,
@@ -397,19 +396,34 @@ async function contributeWithStaking(campaignId, amount, stakingPeriodInDays) {
         };
     } catch (error) {
         console.error('Error staking in campaign:', error);
+        
+        // Better error handling for user
+        if (error.code === 'ACTION_REJECTED') {
+            showToast('Transaction was rejected. You denied the transaction request.', 'error');
+        } else if (error.message && error.message.includes('call stack size')) {
+            showToast('Error: Maximum call stack size exceeded. Please refresh the page and try again.', 'error');
+        } else {
+            showToast('Staking transaction failed: ' + (error.message || 'Unknown error'), 'error');
+        }
+        
         throw error;
     }
 }
 
 // Get campaign details
 async function getCampaign(campaignId) {
-    if (!cryptoFundContract) {
-        if (!(await initializeContract())) {
-            throw new Error('Contract not initialized');
-        }
-    }
-    
     try {
+        // First check if contract is initialized or needs to be initialized
+        if (!cryptoFundContract) {
+            const initialized = await initializeContract();
+            if (!initialized) {
+                console.error('Unable to initialize contract');
+                throw new Error('Contract not initialized');
+            }
+        }
+        
+        // Get campaign data
+        console.log(`Getting campaign details for ID: ${campaignId}`);
         const campaign = await cryptoFundContract.getCampaign(campaignId);
         
         // Format the campaign data
@@ -426,19 +440,30 @@ async function getCampaign(campaignId) {
         };
     } catch (error) {
         console.error('Error getting campaign:', error);
+        
+        // Better error handling
+        if (error.message && error.message.includes('call stack size')) {
+            showToast('Error: Maximum call stack size exceeded. Please refresh the page and try again.', 'error');
+        }
+        
         throw error;
     }
 }
 
 // Get staking details
 async function getStakingContribution(campaignId, address) {
-    if (!cryptoFundContract) {
-        if (!(await initializeContract())) {
-            throw new Error('Contract not initialized');
-        }
-    }
-    
     try {
+        // First check if contract is initialized or needs to be initialized
+        if (!cryptoFundContract) {
+            const initialized = await initializeContract();
+            if (!initialized) {
+                console.error('Unable to initialize contract');
+                throw new Error('Contract not initialized');
+            }
+        }
+        
+        // Get staking data
+        console.log(`Getting staking details for campaign ${campaignId} and address ${address}`);
         const staking = await cryptoFundContract.getStakingContribution(campaignId, address);
         
         // Format the staking data
@@ -451,6 +476,12 @@ async function getStakingContribution(campaignId, address) {
         };
     } catch (error) {
         console.error('Error getting staking details:', error);
+        
+        // Better error handling
+        if (error.message && error.message.includes('call stack size')) {
+            showToast('Error: Maximum call stack size exceeded. Please refresh the page and try again.', 'error');
+        }
+        
         throw error;
     }
 }

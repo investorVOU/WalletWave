@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $walletConnected) {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $fundingGoal = floatval($_POST['funding_goal'] ?? 0);
-    $tokenSymbol = trim($_POST['token_symbol'] ?? '');
+    $tokenSymbol = substr(trim($_POST['token_symbol'] ?? ''), 0, 10); // Limit to 10 chars
     $category = trim($_POST['category'] ?? '');
     $startDate = trim($_POST['start_date'] ?? '');
     $endDate = trim($_POST['end_date'] ?? '');
